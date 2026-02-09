@@ -1,0 +1,314 @@
+/* ========================================
+   KITCHEN DASHBOARD
+   Touch-friendly, tablet-optimized
+   ======================================== */
+
+:root {
+    --bg: #F0F2F5;
+    --surface: #FFFFFF;
+    --text: #1A1A2E;
+    --text-secondary: #6B7280;
+    --border: #E5E7EB;
+
+    --new: #3B82F6;
+    --new-bg: #EFF6FF;
+    --preparing: #F59E0B;
+    --preparing-bg: #FFFBEB;
+    --ready: #10B981;
+    --ready-bg: #ECFDF5;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow: 0 4px 12px rgba(0,0,0,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.app-header {
+    background: var(--surface);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-brand h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.header-brand .subtitle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.header-stats {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--new);
+    color: white;
+    font-weight: 700;
+    font-size: 0.85rem;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.4rem;
+    border-radius: 99px;
+}
+
+/* ========================================
+   ORDER BOARD — 3 columns
+   ======================================== */
+
+.main-content {
+    padding: 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.order-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.order-column {
+    min-height: 200px;
+}
+
+/* Column headers */
+.col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.col-header.new       { background: var(--new-bg);       color: var(--new); }
+.col-header.preparing  { background: var(--preparing-bg); color: var(--preparing); }
+.col-header.ready      { background: var(--ready-bg);     color: var(--ready); }
+
+.col-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.35rem;
+    border-radius: 99px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.col-header.new .col-count       { background: var(--new);       color: white; }
+.col-header.preparing .col-count { background: var(--preparing); color: white; }
+.col-header.ready .col-count     { background: var(--ready);     color: white; }
+
+/* Order list */
+.order-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--surface);
+    border-radius: 0 0 var(--radius) var(--radius);
+    border: 1px solid var(--border);
+    border-top: none;
+    min-height: 120px;
+}
+
+.order-list:empty::after {
+    content: 'No orders';
+    display: block;
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* ========================================
+   ORDER CARD
+   ======================================== */
+
+.order-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    transition: box-shadow 0.15s;
+}
+
+.order-card:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.order-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.order-number {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.order-unit {
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+}
+
+.order-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.6rem;
+}
+
+.order-items {
+    list-style: none;
+    margin-bottom: 0.75rem;
+}
+
+.order-items li {
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.order-items .qty {
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-right: 0.25rem;
+}
+
+.order-items .item-notes {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding-left: 1.5rem;
+}
+
+.order-notes {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: var(--surface);
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    border-left: 3px solid var(--preparing);
+}
+
+.order-total {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-align: right;
+    margin-bottom: 0.75rem;
+}
+
+/* Advance button */
+.btn-advance {
+    width: 100%;
+    padding: 0.7rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    color: white;
+}
+
+.btn-advance:active {
+    opacity: 0.8;
+}
+
+.btn-advance.to-preparing { background: var(--preparing); }
+.btn-advance.to-ready     { background: var(--ready); }
+.btn-advance.to-delivered  { background: #6366F1; }
+
+.btn-advance:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ========================================
+   EMPTY STATE
+   ======================================== */
+
+.empty-board {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--text-secondary);
+}
+
+.empty-board .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   RESPONSIVE — stacked on small screens
+   ======================================== */
+
+@media (max-width: 768px) {
+    .order-board {
+        grid-template-columns: 1fr;
+    }
+
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .main-content {
+        padding: 0.75rem;
+    }
+
+    .order-card {
+        padding: 0.75rem;
+    }
+}

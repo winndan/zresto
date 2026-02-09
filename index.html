@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Garden Bistro - Order Food</title>
+    <link rel="stylesheet" href="styles.css">
+<base target="_blank">
+</head>
+<body>
+    <!-- Screen 1: Menu -->
+    <div id="menu-screen" class="screen active">
+        <header class="app-header">
+            <div class="header-content">
+                <h1>🍽️ The Garden Bistro</h1>
+                <p class="subtitle">In-House Restaurant Delivery</p>
+            </div>
+        </header>
+
+        <main class="menu-container">
+            <div class="category-tabs">
+                <button class="tab-btn active" data-category="all">All</button>
+                <button class="tab-btn" data-category="mains">Mains</button>
+                <button class="tab-btn" data-category="sides">Sides</button>
+                <button class="tab-btn" data-category="drinks">Drinks</button>
+            </div>
+
+            <div id="menu-items" class="menu-grid">
+                <!-- Menu items injected by JavaScript -->
+            </div>
+        </main>
+
+        <div id="cart-summary" class="cart-summary hidden">
+            <div class="cart-preview">
+                <div class="cart-icon">🛒</div>
+                <div class="cart-info">
+                    <span id="cart-count">0 items</span>
+                    <span id="cart-total">$0.00</span>
+                </div>
+            </div>
+            <button id="view-cart-btn" class="btn-primary">
+                View Order →
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Cart / Edit Order -->
+    <div id="cart-screen" class="screen">
+        <header class="screen-header">
+            <button id="back-to-menu" class="btn-back">
+                <span class="back-arrow">←</span>
+                <span>Menu</span>
+            </button>
+            <h2>Your Order</h2>
+            <button id="clear-cart-btn" class="btn-text">Clear All</button>
+        </header>
+
+        <main class="cart-container">
+            <div id="cart-items" class="cart-items">
+                <!-- Cart items injected by JavaScript -->
+            </div>
+
+            <div class="cart-empty-state hidden">
+                <div class="empty-icon">🛒</div>
+                <h3>Your cart is empty</h3>
+                <p>Add some delicious food to get started!</p>
+                <button id="browse-menu-btn" class="btn-primary">Browse Menu</button>
+            </div>
+
+            <div class="cart-summary-box">
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span id="subtotal">$0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>Delivery Fee</span>
+                    <span class="free">FREE</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total</span>
+                    <span id="cart-total-large">$0.00</span>
+                </div>
+            </div>
+
+            <div class="delivery-section">
+                <h3>Delivery Details</h3>
+                <div class="input-group">
+                    <label for="unit-number">Unit Number *</label>
+                    <input type="text" id="unit-number" placeholder="e.g., 12A" maxlength="10">
+                </div>
+                <div class="input-group">
+                    <label for="phone-number">Phone Number (optional)</label>
+                    <input type="tel" id="phone-number" placeholder="For delivery contact">
+                </div>
+                <div class="input-group">
+                    <label for="delivery-notes">Delivery Notes (optional)</label>
+                    <textarea id="delivery-notes" rows="2" placeholder="Any special instructions..."></textarea>
+                </div>
+            </div>
+
+            <button id="place-order-btn" class="btn-primary btn-large" disabled>
+                Place Order
+            </button>
+        </main>
+    </div>
+
+    <!-- Screen 3: Order Status -->
+    <div id="status-screen" class="screen">
+        <header class="screen-header center">
+            <h2>Order Status</h2>
+        </header>
+
+        <main class="status-container">
+            <div class="status-card">
+                <div class="status-icon-large" id="status-icon">🍳</div>
+                <h3 id="status-text" class="status-title">Preparing Your Order</h3>
+                <p id="status-message" class="status-message">The kitchen is working on it!</p>
+            </div>
+            
+            <div class="progress-track">
+                <div class="progress-line">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-steps">
+                    <div class="p-step active" data-step="1">
+                        <div class="p-dot">1</div>
+                        <span>Preparing</span>
+                    </div>
+                    <div class="p-step" data-step="2">
+                        <div class="p-dot">2</div>
+                        <span>Ready</span>
+                    </div>
+                    <div class="p-step" data-step="3">
+                        <div class="p-dot">3</div>
+                        <span>On the way</span>
+                    </div>
+                    <div class="p-step" data-step="4">
+                        <div class="p-dot">4</div>
+                        <span>Delivered</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="order-info-card">
+                <div class="info-row">
+                    <span>Order #</span>
+                    <strong id="order-number">----</strong>
+                </div>
+                <div class="info-row">
+                    <span>Delivering to</span>
+                    <strong id="delivery-unit">--</strong>
+                </div>
+                <div class="info-row">
+                    <span>Estimated time</span>
+                    <strong id="est-time">20-30 min</strong>
+                </div>
+            </div>
+
+            <div id="order-summary" class="order-summary-mini">
+                <h4>Your Order</h4>
+                <div id="order-items-list"></div>
+            </div>
+
+            <button id="new-order-btn" class="btn-primary btn-large hidden">
+                Order Again
+            </button>
+        </main>
+    </div>
+
+    <!-- Edit Item Modal -->
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="edit-item-name">Item Name</h3>
+                <button id="close-modal" class="btn-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="quantity-editor">
+                    <button id="qty-decrease" class="btn-qty">−</button>
+                    <span id="edit-quantity" class="qty-display">1</span>
+                    <button id="qty-increase" class="btn-qty">+</button>
+                </div>
+                <div class="edit-notes">
+                    <label>Special Instructions</label>
+                    <textarea id="edit-notes" rows="3" placeholder="e.g., No onions, extra sauce..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="remove-item-btn" class="btn-danger">Remove Item</button>
+                <button id="save-changes-btn" class="btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
