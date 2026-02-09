@@ -236,6 +236,32 @@ def tenant_page():
             id='edit-modal',
             cls='modal hidden'
         ),
+        Div(
+            Div(cls='modal-overlay', id='detail-overlay'),
+            Div(
+                Div(
+                    H3('Item Name', id='detail-item-name'),
+                    Button('×', id='close-detail', cls='btn-close'),
+                    cls='modal-header'
+                ),
+                Div(
+                    Div(
+                        Img(src='', alt='', id='detail-image'),
+                        cls='detail-image'
+                    ),
+                    P('', id='detail-description', cls='detail-description'),
+                    P('', id='detail-price', cls='detail-price'),
+                    cls='modal-body'
+                ),
+                Div(
+                    Button('Add to Cart', id='detail-add-btn', cls='btn-primary btn-large'),
+                    cls='modal-footer'
+                ),
+                cls='modal-content'
+            ),
+            id='item-detail-modal',
+            cls='modal hidden'
+        ),
         Script(src='static/js/tenant.js')
     ),
     lang='en'

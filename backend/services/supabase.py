@@ -1,4 +1,5 @@
 import os
+import uuid
 import secrets
 import random
 from datetime import datetime, timezone
@@ -8,7 +9,7 @@ from supabase import create_client
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE") or os.getenv("SUPABASE_SERVICE_KEY")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
@@ -38,6 +39,7 @@ def get_menu_items():
 def create_order(unit_number: str, items: list, total: float,
                  phone_number: str = None, delivery_notes: str = None):
     order_number = random.randint(1000, 9999)
+    tracking_token = str(uuid.uuid4())
     row = {
         "order_number": order_number,
         "unit_number": unit_number.strip().upper(),
@@ -46,6 +48,7 @@ def create_order(unit_number: str, items: list, total: float,
         "items": items,
         "total": total,
         "status": "new",
+        "tracking_token": tracking_token,
     }
     res = supabase.table("orders").insert(row).execute()
     return res.data[0]
@@ -63,11 +66,31 @@ def get_order(order_id: int):
     return res.data
 
 
+# Tenant-safe fields (no internal IDs or tokens)
+_TENANT_ORDER_FIELDS = "order_number,unit_number,items,total,status,created_at,updated_at,tracking_token"
+
+
+def get_order_by_token(token: str):
+    """Look up an order by its tracking token. Returns tenant-safe fields only."""
+    try:
+        res = (
+            supabase
+            .table("orders")
+            .select(_TENANT_ORDER_FIELDS)
+            .eq("tracking_token", token)
+            .single()
+            .execute()
+        )
+        return res.data
+    except Exception:
+        return None
+
+
 def get_active_orders():
     res = (
         supabase
         .table("orders")
-        .select("*")
+        .select("id,order_number,unit_number,phone_number,delivery_notes,items,total,status,created_at,updated_at")
         .neq("status", "delivered")
         .order("created_at", desc=False)
         .execute()
@@ -113,7 +136,7 @@ def get_all_menu_items():
     return res.data
 
 
-def toggle_item_availability(item_id: int, is_available: bool):
+def toggle_item_availability(item_id: str, is_available: bool):
     res = (
         supabase
         .table("menu_items")
@@ -131,7 +154,7 @@ def create_menu_item(data: dict):
     return res.data[0] if res.data else None
 
 
-def update_menu_item(item_id: int, data: dict):
+def update_menu_item(item_id: str, data: dict):
     allowed = {"name", "description", "price", "category", "image_url", "is_available"}
     clean = {k: v for k, v in data.items() if k in allowed}
     if not clean:
@@ -146,7 +169,7 @@ def update_menu_item(item_id: int, data: dict):
     return res.data[0] if res.data else None
 
 
-def delete_menu_item(item_id: int):
+def delete_menu_item(item_id: str):
     res = (
         supabase
         .table("menu_items")

@@ -8,7 +8,7 @@ from frontend.pages.tenant import tenant_page
 from frontend.pages.staff import staff_page
 from frontend.pages.admin import admin_page
 from backend.services.supabase import (
-    get_menu_items, create_order, get_order,
+    get_menu_items, create_order, get_order, get_order_by_token,
     get_active_orders, advance_order_status,
     get_all_menu_items, toggle_item_availability,
     create_menu_item, update_menu_item, delete_menu_item,
@@ -94,6 +94,14 @@ def get_order_api(order_id: int):
     return JSONResponse(order)
 
 
+@rt("/api/orders/track/{token}")
+def track_order_api(token: str):
+    order = get_order_by_token(token)
+    if not order:
+        return JSONResponse({"error": "Order not found"}, status_code=404)
+    return JSONResponse(order)
+
+
 @rt("/api/orders", methods=["GET"])
 def list_orders_api():
     return JSONResponse(get_active_orders())
@@ -164,7 +172,7 @@ async def admin_upload_api(request: Request):
 
 # --- Admin menu ---
 
-@rt("/api/admin/menu")
+@rt("/api/admin/menu", methods=["GET"])
 def admin_menu_api(request: Request):
     if not check_admin(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -188,8 +196,8 @@ async def admin_create_menu_api(request: Request):
     return JSONResponse(item, status_code=201)
 
 
-@rt("/api/admin/menu/{item_id:int}", methods=["PUT"])
-async def admin_update_menu_api(item_id: int, request: Request):
+@rt("/api/admin/menu/{item_id}", methods=["PUT"])
+async def admin_update_menu_api(item_id: str, request: Request):
     if not check_admin(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     body = await request.json()
@@ -199,8 +207,8 @@ async def admin_update_menu_api(item_id: int, request: Request):
     return JSONResponse(item)
 
 
-@rt("/api/admin/menu/{item_id:int}", methods=["DELETE"])
-def admin_delete_menu_api(item_id: int, request: Request):
+@rt("/api/admin/menu/{item_id}", methods=["DELETE"])
+def admin_delete_menu_api(item_id: str, request: Request):
     if not check_admin(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     deleted = delete_menu_item(item_id)
@@ -209,8 +217,8 @@ def admin_delete_menu_api(item_id: int, request: Request):
     return JSONResponse({"ok": True})
 
 
-@rt("/api/admin/menu/{item_id:int}/toggle", methods=["POST"])
-async def admin_toggle_menu_api(item_id: int, request: Request):
+@rt("/api/admin/menu/{item_id}/toggle", methods=["POST"])
+async def admin_toggle_menu_api(item_id: str, request: Request):
     if not check_admin(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     body = await request.json()

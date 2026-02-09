@@ -3,6 +3,7 @@
 // ========================================
 
 const CURRENCY = '₱';
+const TRACKING_KEY = 'zitan_tracking_token';
 
 function formatPrice(amount) {
     return `${CURRENCY}${amount.toLocaleString('en-PH', {
@@ -82,7 +83,16 @@ const elements = {
     deliveryUnit: document.getElementById('delivery-unit'),
     estTime: document.getElementById('est-time'),
     orderItemsList: document.getElementById('order-items-list'),
-    modalOverlay: document.querySelector('.modal-overlay'),
+    modalOverlay: document.querySelector('#edit-modal .modal-overlay'),
+    // Item detail modal
+    itemDetailModal: document.getElementById('item-detail-modal'),
+    detailImage: document.getElementById('detail-image'),
+    detailName: document.getElementById('detail-item-name'),
+    detailDescription: document.getElementById('detail-description'),
+    detailPrice: document.getElementById('detail-price'),
+    detailAddBtn: document.getElementById('detail-add-btn'),
+    detailCloseBtn: document.getElementById('close-detail'),
+    detailOverlay: document.getElementById('detail-overlay'),
     statusIcon: document.getElementById('status-icon'),
     statusText: document.getElementById('status-text'),
     statusMessage: document.getElementById('status-message'),
@@ -97,6 +107,39 @@ async function init() {
     menuItems = await fetchMenuItems();
     renderMenu();
     setupEventListeners();
+
+    // Resume tracking if we have a saved token
+    const savedToken = localStorage.getItem(TRACKING_KEY);
+    if (savedToken) {
+        try {
+            const res = await fetch(`/api/orders/track/${savedToken}`);
+            if (res.ok) {
+                const order = await res.json();
+                if (order.status === 'delivered') {
+                    // Order already delivered — clear token, show menu
+                    localStorage.removeItem(TRACKING_KEY);
+                } else {
+                    // Resume status screen
+                    currentOrder = {
+                        trackingToken: order.tracking_token,
+                        orderNumber: order.order_number,
+                        unitNumber: order.unit_number,
+                        items: order.items,
+                        total: order.total,
+                        status: order.status
+                    };
+                    showScreen('status');
+                    renderOrderStatus();
+                    startStatusPolling();
+                }
+            } else {
+                // Token invalid (404) — clear it
+                localStorage.removeItem(TRACKING_KEY);
+            }
+        } catch {
+            // Network error — keep token, will retry on next load
+        }
+    }
 }
 
 
@@ -338,6 +381,30 @@ function removeItemFromModal() {
 }
 
 // ========================================
+// ITEM DETAIL MODAL FUNCTIONS
+// ========================================
+let detailItemId = null;
+
+function openItemDetail(itemId) {
+    const item = menuItems.find(m => String(m.id) === String(itemId));
+    if (!item) return;
+
+    detailItemId = itemId;
+    elements.detailName.textContent = item.name;
+    elements.detailImage.src = item.image_url || '/static/images/placeholder.png';
+    elements.detailImage.alt = item.name;
+    elements.detailDescription.textContent = item.description || '';
+    elements.detailPrice.textContent = formatPrice(item.price);
+
+    elements.itemDetailModal.classList.remove('hidden');
+}
+
+function closeItemDetail() {
+    elements.itemDetailModal.classList.add('hidden');
+    detailItemId = null;
+}
+
+// ========================================
 // NAVIGATION FUNCTIONS
 // ========================================
 function showScreen(screenName) {
@@ -405,8 +472,11 @@ async function placeOrder() {
 
         const order = await res.json();
 
+        // Save tracking token for persistence across refreshes
+        localStorage.setItem(TRACKING_KEY, order.tracking_token);
+
         currentOrder = {
-            dbId: order.id,
+            trackingToken: order.tracking_token,
             orderNumber: order.order_number,
             unitNumber: order.unit_number,
             items: order.items,
@@ -479,13 +549,13 @@ function startStatusPolling() {
     if (statusPollTimer) clearInterval(statusPollTimer);
 
     statusPollTimer = setInterval(async () => {
-        if (!currentOrder || !currentOrder.dbId) {
+        if (!currentOrder || !currentOrder.trackingToken) {
             clearInterval(statusPollTimer);
             return;
         }
 
         try {
-            const res = await fetch(`/api/orders/${currentOrder.dbId}`);
+            const res = await fetch(`/api/orders/track/${currentOrder.trackingToken}`);
             if (!res.ok) return;
 
             const order = await res.json();
@@ -535,11 +605,15 @@ function setupEventListeners() {
     
     // Menu item actions
     elements.menuItems.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn) return;
-        
-        const itemId = btn.dataset.id;
-        addToCart(itemId);
+        const btn = e.target.closest('button[data-action="add"]');
+        if (btn) {
+            addToCart(btn.dataset.id);
+            return;
+        }
+        const card = e.target.closest('.food-card');
+        if (card) {
+            openItemDetail(card.dataset.id);
+        }
     });
     
     // Cart item actions
@@ -578,6 +652,7 @@ function setupEventListeners() {
             clearInterval(statusPollTimer);
             statusPollTimer = null;
         }
+        localStorage.removeItem(TRACKING_KEY);
         currentOrder = null;
         cart = {};
         renderMenu();
@@ -605,6 +680,16 @@ function setupEventListeners() {
     
     elements.removeItemBtn.addEventListener('click', removeItemFromModal);
     elements.saveChangesBtn.addEventListener('click', saveEditChanges);
+
+    // Detail modal actions
+    elements.detailCloseBtn.addEventListener('click', closeItemDetail);
+    elements.detailOverlay.addEventListener('click', closeItemDetail);
+    elements.detailAddBtn.addEventListener('click', () => {
+        if (detailItemId) {
+            addToCart(detailItemId);
+            closeItemDetail();
+        }
+    });
 }
 
 // Start the app
