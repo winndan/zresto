@@ -42,6 +42,7 @@ async function checkRestaurantStatus() {
 // App State
 let cart = {}; // { itemId: { quantity, notes } }
 let currentCategory = 'all';
+let searchQuery = '';
 let editingItemId = null;
 let currentOrder = null;
 
@@ -147,31 +148,50 @@ async function init() {
 // MENU FUNCTIONS
 // ========================================
 function renderMenu() {
-    const filteredItems = currentCategory === 'all' 
-        ? menuItems 
+    let filteredItems = currentCategory === 'all'
+        ? menuItems
         : menuItems.filter(item => item.category === currentCategory);
-    
+
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filteredItems = filteredItems.filter(item =>
+            item.name.toLowerCase().includes(q) ||
+            (item.description && item.description.toLowerCase().includes(q))
+        );
+    }
+
+    if (filteredItems.length === 0) {
+        elements.menuItems.innerHTML = `
+            <div class="empty-menu">
+                <p>No items found</p>
+            </div>
+        `;
+        return;
+    }
+
     elements.menuItems.innerHTML = filteredItems.map(item => {
         const cartItem = cart[item.id];
         const quantity = cartItem ? cartItem.quantity : 0;
         
         return `
             <div class="food-card" data-id="${item.id}">
-                            <div class="food-image">
-                <img
-                    src="${item.image_url || '/static/images/placeholder.png'}"
-                    alt="${item.name}"
-                    loading="lazy"
-                />
-            </div>
+                <div class="food-image">
+                    <img
+                        src="${item.image_url || '/static/images/placeholder.png'}"
+                        alt="${item.name}"
+                        loading="lazy"
+                    />
+                </div>
                 <div class="food-info">
                     <h3 class="food-name">${item.name}</h3>
                     <p class="food-description">${item.description}</p>
-                    <p class="food-price">${formatPrice(item.price)}</p>
-                </div>
-                <div class="food-actions">
-                    ${quantity > 0 ? `<span class="quantity-badge">${quantity}</span>` : ''}
-                    <button class="btn-add" data-id="${item.id}" data-action="add">+</button>
+                    <div class="food-bottom">
+                        <p class="food-price">${formatPrice(item.price)}</p>
+                        <div class="food-actions">
+                            ${quantity > 0 ? `<span class="quantity-badge">${quantity}</span>` : ''}
+                            <button class="btn-add" data-id="${item.id}" data-action="add">+</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -598,6 +618,17 @@ function updateStatusUI(step, text, icon, message) {
 // EVENT LISTENERS
 // ========================================
 function setupEventListeners() {
+    // Search
+    const searchInput = document.getElementById('search-input');
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            searchQuery = searchInput.value.trim();
+            renderMenu();
+        }, 200);
+    });
+
     // Category tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => filterMenu(btn.dataset.category));

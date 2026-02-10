@@ -5,24 +5,43 @@ def tenant_page():
     Head(
         Meta(charset='UTF-8'),
         Meta(name='viewport', content='width=device-width, initial-scale=1.0'),
-        Title('The Garden Bistro - Order Food'),
+        Title('Zitan - Order Food'),
         Link(rel='stylesheet', href='static/css/tenant.css'),
         Base(target='_blank')
     ),
     Body(
         Div(
-            Div(
-                Img(
-                    src="static/image/logo.png",
-                    alt="The Garden Bistro Logo",
-                    cls="app-logo"
-                ),
+            Header(
                 Div(
-                    H1("The Garden Bistro"),
-                    P("In-House Restaurant Delivery", cls="subtitle"),
-                    cls="brand-text"
+                    Div(
+                        Img(
+                            src="static/image/logs.png",
+                            alt="Zitan Logo",
+                            cls="app-logo"
+                        ),
+                        Div(
+                            H1("The Zitan"),
+                            P("In-House Restaurant Delivery", cls="subtitle"),
+                            cls="brand-text"
+                        ),
+                        cls="header-top"
+                    ),
+                    Div(
+                        Div(
+                            Span('', cls='search-icon'),
+                            Input(
+                                type='text',
+                                id='search-input',
+                                placeholder='Search menu...',
+                                autocomplete='off'
+                            ),
+                            cls='search-bar'
+                        ),
+                        cls="header-search"
+                    ),
+                    cls="header-content"
                 ),
-                cls="header-content"
+                cls="app-header"
             ),
             Div(
                 P('We are not accepting orders right now. Please check back later.'),
@@ -31,11 +50,14 @@ def tenant_page():
             ),
             Main(
                 Div(
-                    Button(Span('🍽️'), Span('All'), data_category='all', cls='tab-btn active'),
-                    Button(Span('🍛'), Span('Mains'), data_category='mains', cls='tab-btn'),
-                    Button(Span('🥗'), Span('Sides'), data_category='sides', cls='tab-btn'),
-                    Button(Span('🥤'), Span('Drinks'), data_category='drinks', cls='tab-btn'),
-                    cls='category-tabs'
+                    Div(
+                        Button(Span('🍽️'), Span('All'), data_category='all', cls='tab-btn active'),
+                        Button(Span('🍛'), Span('Mains'), data_category='mains', cls='tab-btn'),
+                        Button(Span('🥗'), Span('Sides'), data_category='sides', cls='tab-btn'),
+                        Button(Span('🥤'), Span('Drinks'), data_category='drinks', cls='tab-btn'),
+                        cls='category-tabs'
+                    ),
+                    cls='sticky-nav'
                 ),
 
                 Div(
