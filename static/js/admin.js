@@ -34,6 +34,9 @@ let settings = null;
 let todaysOrders = [];
 let categories = [];
 let currentOrderFilter = 'all';
+let orderSearchQuery = '';
+let ordersPage = 1;
+const ORDERS_PER_PAGE = 10;
 let refreshTimer = null;
 let editingItemId = null;
 let editingCatId = null;
@@ -59,7 +62,10 @@ const els = {
     statDelivered: document.getElementById('stat-delivered'),
     menuList: document.getElementById('menu-list'),
     addItemBtn: document.getElementById('add-item-btn'),
+    ordersSearch: document.getElementById('orders-search'),
     ordersList: document.getElementById('orders-list'),
+    ordersPagination: document.getElementById('orders-pagination'),
+    ordersShowMore: document.getElementById('orders-show-more'),
     ordersEmpty: document.getElementById('orders-empty'),
     statusBreakdown: document.getElementById('status-breakdown'),
     paymentBreakdown: document.getElementById('payment-breakdown'),
@@ -100,6 +106,9 @@ const els = {
     orderModalType: document.getElementById('order-modal-type'),
     orderModalUnit: document.getElementById('order-modal-unit'),
     orderModalPhone: document.getElementById('order-modal-phone'),
+    orderModalPhoneRow: document.getElementById('order-modal-phone-row'),
+    orderModalEmail: document.getElementById('order-modal-email'),
+    orderModalEmailRow: document.getElementById('order-modal-email-row'),
     orderModalPayment: document.getElementById('order-modal-payment'),
     orderModalGcash: document.getElementById('order-modal-gcash'),
     orderModalGcashRow: document.getElementById('order-modal-gcash-row'),
@@ -107,6 +116,7 @@ const els = {
     orderModalNotes: document.getElementById('order-modal-notes'),
     orderModalTotal: document.getElementById('order-modal-total'),
     orderModalTime: document.getElementById('order-modal-time'),
+    orderPrintBtn: document.getElementById('order-print-btn'),
     orderAdvanceBtn: document.getElementById('order-advance-btn'),
 };
 
@@ -427,18 +437,38 @@ async function deleteCategory() {
 // ========================================
 
 function renderOrders() {
-    const filtered = currentOrderFilter === 'all'
+    let filtered = currentOrderFilter === 'all'
         ? todaysOrders
         : todaysOrders.filter(o => o.status === currentOrderFilter);
 
+    if (orderSearchQuery) {
+        const tokens = orderSearchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+        filtered = filtered.filter(o => {
+            const haystack = [
+                String(o.order_number),
+                o.unit_number,
+                o.phone_number || '',
+                o.email || '',
+                o.delivery_notes || '',
+                o.items.map(i => i.name).join(' '),
+            ].join(' ').toLowerCase();
+            return tokens.every(t => haystack.includes(t));
+        });
+    }
+
     if (filtered.length === 0) {
         els.ordersList.innerHTML = '';
+        els.ordersPagination.classList.add('hidden');
         els.ordersEmpty.classList.remove('hidden');
         return;
     }
 
     els.ordersEmpty.classList.add('hidden');
-    els.ordersList.innerHTML = filtered.map(order => {
+
+    const visible = filtered.slice(0, ordersPage * ORDERS_PER_PAGE);
+    const hasMore = filtered.length > visible.length;
+
+    els.ordersList.innerHTML = visible.map(order => {
         const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
         const nextLabel = NEXT_STATUS_LABEL[order.status];
         return `
@@ -460,6 +490,14 @@ function renderOrders() {
             </div>
         `;
     }).join('');
+
+    if (hasMore) {
+        const remaining = filtered.length - visible.length;
+        els.ordersShowMore.textContent = `Show more (${remaining} remaining)`;
+        els.ordersPagination.classList.remove('hidden');
+    } else {
+        els.ordersPagination.classList.add('hidden');
+    }
 }
 
 // ========================================
@@ -542,7 +580,23 @@ function openOrderModal(orderId) {
     // Details
     els.orderModalType.textContent = order.order_type === 'pickup' ? 'Pick Up' : 'Delivery';
     els.orderModalUnit.textContent = order.unit_number;
-    els.orderModalPhone.textContent = order.phone_number || 'N/A';
+
+    // Phone row
+    if (order.phone_number) {
+        els.orderModalPhone.textContent = order.phone_number;
+        els.orderModalPhoneRow.classList.remove('hidden');
+    } else {
+        els.orderModalPhoneRow.classList.add('hidden');
+    }
+
+    // Email row
+    if (order.email) {
+        els.orderModalEmail.textContent = order.email;
+        els.orderModalEmailRow.classList.remove('hidden');
+    } else {
+        els.orderModalEmailRow.classList.add('hidden');
+    }
+
     els.orderModalPayment.textContent = order.payment_method === 'gcash' ? 'GCash' : 'Cash';
     els.orderModalCutlery.textContent = order.cutlery ? 'Yes' : 'No';
     els.orderModalNotes.textContent = order.delivery_notes || 'None';
@@ -573,6 +627,111 @@ function openOrderModal(orderId) {
 function closeOrderModal() {
     els.orderModal.classList.add('hidden');
     viewingOrderId = null;
+}
+
+function printReceipt() {
+    if (!viewingOrderId) return;
+    const order = todaysOrders.find(o => o.id === viewingOrderId);
+    if (!order) return;
+
+    const orderDate = new Date(order.created_at);
+    const dateStr = orderDate.toLocaleDateString('en-PH', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const timeStr = orderDate.toLocaleTimeString('en-PH', {
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    const itemsHtml = order.items.map(item => {
+        const lineTotal = item.price * item.quantity;
+        return `
+            <tr>
+                <td style="padding:6px 0;border-bottom:1px solid #eee">${item.quantity}x ${item.name}${item.notes ? '<br><small style="color:#888">' + item.notes + '</small>' : ''}</td>
+                <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${CURRENCY}${Number(lineTotal).toFixed(2)}</td>
+            </tr>`;
+    }).join('');
+
+    const payLabel = order.payment_method === 'gcash' ? 'GCash' : 'Cash';
+    const typeLabel = order.order_type === 'pickup' ? 'Pick Up' : 'Delivery';
+    const phoneLine = order.phone_number
+        ? `<tr><td style="color:#555">Phone</td><td>${order.phone_number}</td></tr>` : '';
+    const emailLine = order.email
+        ? `<tr><td style="color:#555">Email</td><td>${order.email}</td></tr>` : '';
+    const gcashLine = (order.payment_method === 'gcash' && order.gcash_ref)
+        ? `<tr><td style="padding:4px 0;color:#555">GCash Ref</td><td style="padding:4px 0;text-align:right">${order.gcash_ref}</td></tr>`
+        : '';
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Receipt #${order.order_number}</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:20px; max-width:360px; margin:0 auto; color:#222; }
+    .header { text-align:center; margin-bottom:20px; padding-bottom:16px; border-bottom:2px solid #222; }
+    .header h1 { font-size:1.25rem; margin-bottom:2px; }
+    .header p { font-size:0.8125rem; color:#555; }
+    .order-info { margin-bottom:16px; }
+    .order-info table { width:100%; font-size:0.875rem; }
+    .order-info td { padding:4px 0; }
+    .order-info td:last-child { text-align:right; font-weight:600; }
+    .items { margin-bottom:16px; }
+    .items table { width:100%; font-size:0.875rem; border-collapse:collapse; }
+    .total-row td { padding:10px 0 4px; font-weight:700; font-size:1.125rem; border-top:2px solid #222; }
+    .footer { text-align:center; margin-top:24px; padding-top:16px; border-top:1px dashed #ccc; font-size:0.75rem; color:#888; }
+    @media print {
+        body { padding:0; }
+        @page { margin:10mm; size:80mm auto; }
+    }
+</style>
+</head>
+<body>
+    <div class="header">
+        <h1>The Zitan</h1>
+        <p>Order Receipt</p>
+    </div>
+
+    <div class="order-info">
+        <table>
+            <tr><td style="color:#555">Order #</td><td>${order.order_number}</td></tr>
+            <tr><td style="color:#555">Date</td><td>${dateStr}</td></tr>
+            <tr><td style="color:#555">Time</td><td>${timeStr}</td></tr>
+            <tr><td style="color:#555">Type</td><td>${typeLabel}</td></tr>
+            <tr><td style="color:#555">Unit</td><td>${order.unit_number}</td></tr>
+            ${phoneLine}
+            ${emailLine}
+            <tr><td style="color:#555">Payment</td><td>${payLabel}</td></tr>
+            ${gcashLine}
+        </table>
+    </div>
+
+    <div class="items">
+        <table>
+            <tr style="border-bottom:2px solid #222">
+                <th style="text-align:left;padding:6px 0;font-size:0.75rem;text-transform:uppercase;color:#555">Item</th>
+                <th style="text-align:right;padding:6px 0;font-size:0.75rem;text-transform:uppercase;color:#555">Amount</th>
+            </tr>
+            ${itemsHtml}
+            <tr class="total-row">
+                <td>Total</td>
+                <td style="text-align:right">${CURRENCY}${Number(order.total).toFixed(2)}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for your order!</p>
+        <p>The Zitan Restaurant</p>
+    </div>
+
+    <script>window.onload=function(){window.print();}<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
 }
 
 async function advanceOrder(orderId) {
@@ -816,15 +975,33 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
+// Orders search
+let orderSearchTimeout;
+els.ordersSearch.addEventListener('input', () => {
+    clearTimeout(orderSearchTimeout);
+    orderSearchTimeout = setTimeout(() => {
+        orderSearchQuery = els.ordersSearch.value.trim();
+        ordersPage = 1;
+        renderOrders();
+    }, 200);
+});
+
 // Order filters
 document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         currentOrderFilter = btn.dataset.filter;
+        ordersPage = 1;
         document.querySelectorAll('.filter-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.filter === currentOrderFilter)
         );
         renderOrders();
     });
+});
+
+// Orders pagination
+els.ordersShowMore.addEventListener('click', () => {
+    ordersPage++;
+    renderOrders();
 });
 
 // Orders list (delegation)
@@ -846,6 +1023,7 @@ els.ordersList.addEventListener('click', (e) => {
 // Order modal
 els.closeOrderModal.addEventListener('click', closeOrderModal);
 els.orderModalOverlay.addEventListener('click', closeOrderModal);
+els.orderPrintBtn.addEventListener('click', printReceipt);
 els.orderAdvanceBtn.addEventListener('click', () => {
     if (viewingOrderId) {
         els.orderAdvanceBtn.disabled = true;

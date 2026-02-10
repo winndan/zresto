@@ -1025,6 +1025,80 @@ body {
     min-height: 80px;
 }
 
+/* Phone prefix input */
+.phone-input-wrap {
+    display: flex;
+    align-items: stretch;
+}
+
+.phone-prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 0.875rem;
+    background: var(--bg, #F5F5F5);
+    border: 2px solid var(--border);
+    border-right: none;
+    border-radius: var(--radius) 0 0 var(--radius);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.phone-input-wrap input {
+    border-radius: 0 var(--radius) var(--radius) 0 !important;
+    flex: 1;
+    min-width: 0;
+}
+
+.phone-input-wrap input:focus + .phone-prefix,
+.phone-input-wrap:focus-within .phone-prefix {
+    border-color: var(--primary);
+}
+
+/* Contact method toggle */
+.contact-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.contact-option {
+    flex: 1;
+    padding: 0.625rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.contact-option.active {
+    border-color: var(--primary);
+    background: #F3E5F5;
+    color: var(--primary);
+}
+
+#contact-email-group input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+#contact-email-group input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(106, 27, 154, 0.1);
+}
+
 /* ========================================
    ALLERGY WARNING & ORDER REQUESTS
    ======================================== */

@@ -69,7 +69,21 @@ def admin_page():
                             Button('Delivered', data_filter='delivered', cls='filter-btn'),
                             cls='order-filters'
                         ),
+                        Div(
+                            Input(
+                                type='text',
+                                id='orders-search',
+                                placeholder='Search by order #, unit, or phone...',
+                                autocomplete='off',
+                            ),
+                            cls='orders-search'
+                        ),
                         Div(id='orders-list', cls='orders-list'),
+                        Div(
+                            Button('Show more', id='orders-show-more', cls='btn-show-more'),
+                            id='orders-pagination',
+                            cls='orders-pagination hidden'
+                        ),
                         Div(
                             P('No orders yet today.', cls='empty-text'),
                             id='orders-empty',
@@ -316,7 +330,14 @@ def admin_page():
                                 Div(
                                     Span('Phone'),
                                     Strong('--', id='order-modal-phone'),
-                                    cls='info-row'
+                                    cls='info-row',
+                                    id='order-modal-phone-row'
+                                ),
+                                Div(
+                                    Span('Email'),
+                                    Strong('--', id='order-modal-email'),
+                                    cls='info-row',
+                                    id='order-modal-email-row'
                                 ),
                                 Div(
                                     Span('Payment'),
@@ -356,6 +377,7 @@ def admin_page():
                         cls='modal-body'
                     ),
                     Div(
+                        Button('Print Receipt', id='order-print-btn', cls='btn-secondary'),
                         Button('Advance Status', id='order-advance-btn', cls='btn-primary'),
                         cls='modal-footer'
                     ),

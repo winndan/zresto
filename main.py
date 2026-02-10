@@ -75,6 +75,7 @@ async def create_order_api(request: Request):
 
     total = body.get("total", 0)
     phone_number = body.get("phone_number")
+    email = body.get("email")
     delivery_notes = body.get("delivery_notes")
     cutlery = body.get("cutlery", False)
     order_type = body.get("order_type", "delivery")
@@ -86,6 +87,7 @@ async def create_order_api(request: Request):
         items=items,
         total=total,
         phone_number=phone_number,
+        email=email,
         delivery_notes=delivery_notes,
         cutlery=cutlery,
         order_type=order_type,

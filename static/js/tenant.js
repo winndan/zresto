@@ -54,6 +54,7 @@ let currentCategory = 'all';
 let searchQuery = '';
 let editingItemId = null;
 let currentOrder = null;
+let contactMethod = 'phone'; // 'phone' or 'email'
 let cutleryPreference = 'none'; // 'none' or 'with'
 let orderType = 'delivery'; // 'delivery' or 'pickup'
 let paymentMethod = 'cash'; // 'cash' or 'gcash'
@@ -77,6 +78,7 @@ const elements = {
     subtotal: document.getElementById('subtotal'),
     unitNumber: document.getElementById('unit-number'),
     phoneNumber: document.getElementById('phone-number'),
+    emailAddress: document.getElementById('email-address'),
     deliveryNotes: document.getElementById('delivery-notes'),
     placeOrderBtn: document.getElementById('place-order-btn'),
     viewCartBtn: document.getElementById('view-cart-btn'),
@@ -624,7 +626,11 @@ async function placeOrder() {
     }
 
     const unitNumber = elements.unitNumber.value.trim().toUpperCase();
-    const phoneNumber = elements.phoneNumber.value.trim();
+    const rawPhone = elements.phoneNumber.value.trim().replace(/\s+/g, '');
+    const phoneNumber = (contactMethod === 'phone' && rawPhone)
+        ? (rawPhone.startsWith('+') ? rawPhone : '+63' + rawPhone.replace(/^0/, ''))
+        : '';
+    const emailValue = (contactMethod === 'email') ? elements.emailAddress.value.trim() : '';
     const deliveryNotes = elements.deliveryNotes.value.trim();
 
     if (!unitNumber) {
@@ -670,6 +676,7 @@ async function placeOrder() {
             body: JSON.stringify({
                 unit_number: unitNumber,
                 phone_number: phoneNumber || null,
+                email: emailValue || null,
                 delivery_notes: deliveryNotes || null,
                 cutlery: cutleryPreference === 'with',
                 order_type: orderType,
@@ -705,6 +712,12 @@ async function placeOrder() {
         cart = {};
         elements.unitNumber.value = '';
         elements.phoneNumber.value = '';
+        elements.emailAddress.value = '';
+        contactMethod = 'phone';
+        document.getElementById('btn-contact-phone').classList.add('active');
+        document.getElementById('btn-contact-email').classList.remove('active');
+        document.getElementById('contact-phone-group').classList.remove('hidden');
+        document.getElementById('contact-email-group').classList.add('hidden');
         elements.deliveryNotes.value = '';
         document.getElementById('allergen-ack').checked = false;
         cutleryPreference = 'none';
@@ -931,6 +944,22 @@ function setupEventListeners() {
 
     // Allergen acknowledgment
     document.getElementById('allergen-ack').addEventListener('change', updatePlaceOrderState);
+
+    // Contact method toggle
+    document.getElementById('btn-contact-phone').addEventListener('click', () => {
+        contactMethod = 'phone';
+        document.getElementById('btn-contact-phone').classList.add('active');
+        document.getElementById('btn-contact-email').classList.remove('active');
+        document.getElementById('contact-phone-group').classList.remove('hidden');
+        document.getElementById('contact-email-group').classList.add('hidden');
+    });
+    document.getElementById('btn-contact-email').addEventListener('click', () => {
+        contactMethod = 'email';
+        document.getElementById('btn-contact-email').classList.add('active');
+        document.getElementById('btn-contact-phone').classList.remove('active');
+        document.getElementById('contact-email-group').classList.remove('hidden');
+        document.getElementById('contact-phone-group').classList.add('hidden');
+    });
 
     // Order type toggle
     document.getElementById('btn-delivery').addEventListener('click', () => {

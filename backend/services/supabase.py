@@ -37,7 +37,8 @@ def get_menu_items():
 
 
 def create_order(unit_number: str, items: list, total: float,
-                 phone_number: str = None, delivery_notes: str = None,
+                 phone_number: str = None, email: str = None,
+                 delivery_notes: str = None,
                  cutlery: bool = False, order_type: str = "delivery",
                  payment_method: str = "cash", gcash_ref: str = None):
     order_number = random.randint(1000, 9999)
@@ -46,6 +47,7 @@ def create_order(unit_number: str, items: list, total: float,
         "order_number": order_number,
         "unit_number": unit_number.strip().upper(),
         "phone_number": phone_number or None,
+        "email": email or None,
         "delivery_notes": delivery_notes or None,
         "cutlery": cutlery,
         "order_type": order_type,
@@ -128,8 +130,8 @@ def advance_order_status(order_id: int):
 
 def update_order(order_id: int, data: dict):
     """Update editable fields on an order (admin use)."""
-    allowed = {"unit_number", "phone_number", "delivery_notes", "cutlery",
-               "order_type", "payment_method", "gcash_ref", "status"}
+    allowed = {"unit_number", "phone_number", "email", "delivery_notes",
+               "cutlery", "order_type", "payment_method", "gcash_ref", "status"}
     clean = {k: v for k, v in data.items() if k in allowed}
     if not clean:
         return None

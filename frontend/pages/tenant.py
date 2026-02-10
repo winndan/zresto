@@ -194,8 +194,29 @@ def tenant_page():
                                 cls='input-group'
                             ),
                             Div(
-                                Label('Phone Number (optional)', fr='phone-number'),
-                                Input(type='tel', id='phone-number', placeholder='For delivery contact'),
+                                Label('Contact Method (optional)'),
+                                Div(
+                                    Button('Phone', id='btn-contact-phone',
+                                           cls='contact-option active', data_value='phone'),
+                                    Button('Email', id='btn-contact-email',
+                                           cls='contact-option', data_value='email'),
+                                    cls='contact-toggle'
+                                ),
+                                Div(
+                                    Div(
+                                        Span('+63', cls='phone-prefix'),
+                                        Input(type='tel', id='phone-number',
+                                              placeholder='9XX XXX XXXX', maxlength='12'),
+                                        cls='phone-input-wrap'
+                                    ),
+                                    id='contact-phone-group'
+                                ),
+                                Div(
+                                    Input(type='email', id='email-address',
+                                          placeholder='you@example.com'),
+                                    id='contact-email-group',
+                                    cls='hidden'
+                                ),
                                 cls='input-group'
                             ),
                             Div(
