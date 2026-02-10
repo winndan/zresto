@@ -3,6 +3,12 @@
 // ========================================
 
 const CURRENCY = '\u20B1';
+const STATUS_FLOW = ['new', 'preparing', 'ready', 'delivered'];
+const NEXT_STATUS_LABEL = {
+    new: 'Start Preparing',
+    preparing: 'Mark Ready',
+    ready: 'Mark Delivered',
+};
 
 function formatPrice(amount) {
     return `${CURRENCY}${Number(amount).toLocaleString('en-PH', {
@@ -11,11 +17,25 @@ function formatPrice(amount) {
     })}`;
 }
 
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+}
+
+function formatTime(dateStr) {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+}
+
 // State
 let token = sessionStorage.getItem('admin_token') || null;
 let settings = null;
+let todaysOrders = [];
+let currentOrderFilter = 'all';
 let refreshTimer = null;
-let editingItemId = null; // null = adding new, number = editing existing
+let editingItemId = null;
+let viewingOrderId = null;
 
 // DOM
 const els = {
@@ -24,6 +44,7 @@ const els = {
     passwordInput: document.getElementById('admin-password'),
     loginBtn: document.getElementById('login-btn'),
     loginError: document.getElementById('login-error'),
+    logoutBtn: document.getElementById('logout-btn'),
     statusDot: document.getElementById('status-dot'),
     statusLabel: document.getElementById('status-label'),
     acceptingToggle: document.getElementById('accepting-toggle'),
@@ -36,7 +57,11 @@ const els = {
     statDelivered: document.getElementById('stat-delivered'),
     menuList: document.getElementById('menu-list'),
     addItemBtn: document.getElementById('add-item-btn'),
-    // Modal
+    ordersList: document.getElementById('orders-list'),
+    ordersEmpty: document.getElementById('orders-empty'),
+    statusBreakdown: document.getElementById('status-breakdown'),
+    paymentBreakdown: document.getElementById('payment-breakdown'),
+    // Menu item modal
     itemModal: document.getElementById('item-modal'),
     itemModalOverlay: document.getElementById('item-modal-overlay'),
     itemModalTitle: document.getElementById('item-modal-title'),
@@ -51,6 +76,24 @@ const els = {
     removeImageBtn: document.getElementById('remove-image-btn'),
     saveItemBtn: document.getElementById('save-item-btn'),
     deleteItemBtn: document.getElementById('delete-item-btn'),
+    // Order modal
+    orderModal: document.getElementById('order-modal'),
+    orderModalOverlay: document.getElementById('order-modal-overlay'),
+    closeOrderModal: document.getElementById('close-order-modal'),
+    orderModalNumber: document.getElementById('order-modal-number'),
+    orderModalStatus: document.getElementById('order-modal-status'),
+    orderModalItems: document.getElementById('order-modal-items'),
+    orderModalType: document.getElementById('order-modal-type'),
+    orderModalUnit: document.getElementById('order-modal-unit'),
+    orderModalPhone: document.getElementById('order-modal-phone'),
+    orderModalPayment: document.getElementById('order-modal-payment'),
+    orderModalGcash: document.getElementById('order-modal-gcash'),
+    orderModalGcashRow: document.getElementById('order-modal-gcash-row'),
+    orderModalCutlery: document.getElementById('order-modal-cutlery'),
+    orderModalNotes: document.getElementById('order-modal-notes'),
+    orderModalTotal: document.getElementById('order-modal-total'),
+    orderModalTime: document.getElementById('order-modal-time'),
+    orderAdvanceBtn: document.getElementById('order-advance-btn'),
 };
 
 // ========================================
@@ -98,7 +141,7 @@ function showDashboard() {
     els.loginOverlay.classList.add('hidden');
     els.dashboard.classList.remove('hidden');
     loadAll();
-    refreshTimer = setInterval(loadStats, 30000);
+    refreshTimer = setInterval(loadOrders, 10000);
 }
 
 function handleUnauthorized() {
@@ -110,12 +153,39 @@ function handleUnauthorized() {
     els.loginError.textContent = 'Session expired. Please login again.';
 }
 
+function logout() {
+    token = null;
+    sessionStorage.removeItem('admin_token');
+    if (refreshTimer) clearInterval(refreshTimer);
+    els.dashboard.classList.add('hidden');
+    els.loginOverlay.classList.remove('hidden');
+    els.passwordInput.value = '';
+    els.loginError.textContent = '';
+}
+
+// ========================================
+// TAB NAVIGATION
+// ========================================
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `tab-${tabName}`);
+    });
+    // Refresh data when switching to certain tabs
+    if (tabName === 'orders') loadOrders();
+    if (tabName === 'analytics') loadOrders();
+    if (tabName === 'menu') loadMenu();
+}
+
 // ========================================
 // DATA LOADING
 // ========================================
 
 async function loadAll() {
-    await Promise.all([loadSettings(), loadMenu(), loadStats()]);
+    await Promise.all([loadSettings(), loadMenu(), loadOrders()]);
 }
 
 async function loadSettings() {
@@ -137,18 +207,20 @@ async function loadMenu() {
     } catch { /* silent */ }
 }
 
-async function loadStats() {
+async function loadOrders() {
     try {
         const res = await fetch('/api/admin/orders/today', { headers: authHeaders() });
         if (res.status === 401) { handleUnauthorized(); return; }
         if (!res.ok) return;
-        const orders = await res.json();
-        renderStats(orders);
+        todaysOrders = await res.json();
+        renderOrders();
+        renderStats();
+        renderAnalytics();
     } catch { /* silent */ }
 }
 
 // ========================================
-// RENDER
+// RENDER: SETTINGS
 // ========================================
 
 function renderSettings() {
@@ -165,6 +237,10 @@ function renderSettings() {
         els.statusLabel.textContent = 'Paused';
     }
 }
+
+// ========================================
+// RENDER: MENU
+// ========================================
 
 function renderMenu(items) {
     els.menuList.innerHTML = items.map(item => `
@@ -187,17 +263,55 @@ function renderMenu(items) {
     `).join('');
 }
 
-function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str || '';
-    return d.innerHTML;
+// ========================================
+// RENDER: ORDERS
+// ========================================
+
+function renderOrders() {
+    const filtered = currentOrderFilter === 'all'
+        ? todaysOrders
+        : todaysOrders.filter(o => o.status === currentOrderFilter);
+
+    if (filtered.length === 0) {
+        els.ordersList.innerHTML = '';
+        els.ordersEmpty.classList.remove('hidden');
+        return;
+    }
+
+    els.ordersEmpty.classList.add('hidden');
+    els.ordersList.innerHTML = filtered.map(order => {
+        const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
+        const nextLabel = NEXT_STATUS_LABEL[order.status];
+        return `
+            <div class="order-card" data-id="${order.id}" data-action="view-order">
+                <div class="order-card-top">
+                    <span class="order-card-number">#${order.order_number}</span>
+                    <span class="status-badge ${order.status}">${order.status}</span>
+                </div>
+                <div class="order-card-middle">
+                    <span class="order-card-unit">Unit ${escapeHtml(order.unit_number)}</span>
+                    <span class="order-card-type">${order.order_type === 'pickup' ? 'Pick Up' : 'Delivery'}</span>
+                    <span class="order-card-time">${formatTime(order.created_at)}</span>
+                </div>
+                <div class="order-card-bottom">
+                    <span class="order-card-total">${formatPrice(order.total)}</span>
+                    <span class="order-card-items">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+                    ${nextLabel ? `<button class="order-card-advance" data-id="${order.id}" data-action="advance-order">${nextLabel}</button>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
-function renderStats(orders) {
-    const total = orders.length;
-    const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
-    const active = orders.filter(o => o.status !== 'delivered').length;
-    const delivered = orders.filter(o => o.status === 'delivered').length;
+// ========================================
+// RENDER: STATS
+// ========================================
+
+function renderStats() {
+    const total = todaysOrders.length;
+    const revenue = todaysOrders.reduce((sum, o) => sum + Number(o.total), 0);
+    const active = todaysOrders.filter(o => o.status !== 'delivered').length;
+    const delivered = todaysOrders.filter(o => o.status === 'delivered').length;
 
     els.statTotal.textContent = total;
     els.statRevenue.textContent = formatPrice(revenue);
@@ -206,15 +320,133 @@ function renderStats(orders) {
 }
 
 // ========================================
+// RENDER: ANALYTICS
+// ========================================
+
+function renderAnalytics() {
+    // Status breakdown
+    const statusCounts = {};
+    STATUS_FLOW.forEach(s => statusCounts[s] = 0);
+    todaysOrders.forEach(o => {
+        if (statusCounts[o.status] !== undefined) statusCounts[o.status]++;
+    });
+
+    els.statusBreakdown.innerHTML = STATUS_FLOW.map(s => `
+        <div class="breakdown-row">
+            <span class="breakdown-label">
+                <span class="status-badge ${s}">${s}</span>
+            </span>
+            <span class="breakdown-count">${statusCounts[s]}</span>
+        </div>
+    `).join('');
+
+    // Payment breakdown
+    const paymentTotals = {};
+    todaysOrders.forEach(o => {
+        const method = o.payment_method || 'cash';
+        if (!paymentTotals[method]) paymentTotals[method] = { count: 0, total: 0 };
+        paymentTotals[method].count++;
+        paymentTotals[method].total += Number(o.total);
+    });
+
+    els.paymentBreakdown.innerHTML = Object.entries(paymentTotals).map(([method, data]) => `
+        <div class="breakdown-row">
+            <span class="breakdown-label">${method === 'gcash' ? 'GCash' : 'Cash'} (${data.count})</span>
+            <span class="breakdown-amount">${formatPrice(data.total)}</span>
+        </div>
+    `).join('') || '<p style="color:var(--text-secondary);text-align:center;padding:1rem">No orders yet</p>';
+}
+
+// ========================================
+// ORDER MODAL
+// ========================================
+
+function openOrderModal(orderId) {
+    const order = todaysOrders.find(o => String(o.id) === String(orderId));
+    if (!order) return;
+
+    viewingOrderId = order.id;
+
+    els.orderModalNumber.textContent = order.order_number;
+    els.orderModalStatus.textContent = order.status;
+    els.orderModalStatus.className = `status-badge ${order.status}`;
+
+    // Items
+    els.orderModalItems.innerHTML = order.items.map(item => `
+        <div class="order-modal-item">
+            <span><span class="qty">${item.quantity}x</span> ${escapeHtml(item.name)}</span>
+            <span>${formatPrice(item.price * item.quantity)}</span>
+        </div>
+        ${item.notes ? `<div class="order-modal-item"><span class="item-notes">"${escapeHtml(item.notes)}"</span></div>` : ''}
+    `).join('');
+
+    // Details
+    els.orderModalType.textContent = order.order_type === 'pickup' ? 'Pick Up' : 'Delivery';
+    els.orderModalUnit.textContent = order.unit_number;
+    els.orderModalPhone.textContent = order.phone_number || 'N/A';
+    els.orderModalPayment.textContent = order.payment_method === 'gcash' ? 'GCash' : 'Cash';
+    els.orderModalCutlery.textContent = order.cutlery ? 'Yes' : 'No';
+    els.orderModalNotes.textContent = order.delivery_notes || 'None';
+    els.orderModalTotal.textContent = formatPrice(order.total);
+    els.orderModalTime.textContent = formatTime(order.created_at);
+
+    // GCash ref row
+    if (order.payment_method === 'gcash' && order.gcash_ref) {
+        els.orderModalGcash.textContent = order.gcash_ref;
+        els.orderModalGcashRow.classList.remove('hidden');
+    } else {
+        els.orderModalGcashRow.classList.add('hidden');
+    }
+
+    // Advance button
+    const nextLabel = NEXT_STATUS_LABEL[order.status];
+    if (nextLabel) {
+        els.orderAdvanceBtn.textContent = nextLabel;
+        els.orderAdvanceBtn.classList.remove('hidden');
+        els.orderAdvanceBtn.disabled = false;
+    } else {
+        els.orderAdvanceBtn.classList.add('hidden');
+    }
+
+    els.orderModal.classList.remove('hidden');
+}
+
+function closeOrderModal() {
+    els.orderModal.classList.add('hidden');
+    viewingOrderId = null;
+}
+
+async function advanceOrder(orderId) {
+    try {
+        const res = await fetch(`/api/admin/orders/${orderId}/advance`, {
+            method: 'POST',
+            headers: authHeaders(),
+        });
+        if (res.status === 401) { handleUnauthorized(); return; }
+        if (!res.ok) return;
+
+        await loadOrders();
+
+        // Refresh modal if still open
+        if (viewingOrderId === orderId) {
+            const updated = todaysOrders.find(o => o.id === orderId);
+            if (updated) {
+                openOrderModal(orderId);
+            } else {
+                closeOrderModal();
+            }
+        }
+    } catch { /* silent */ }
+}
+
+// ========================================
 // ITEM MODAL
 // ========================================
 
 function openItemModal(item) {
-    // Reset file input
     els.itemImageFile.value = '';
 
     if (item) {
-        // Edit mode
         editingItemId = item.id;
         els.itemModalTitle.textContent = 'Edit Menu Item';
         els.itemName.value = item.name || '';
@@ -225,7 +457,6 @@ function openItemModal(item) {
         els.deleteItemBtn.classList.remove('hidden');
         showImagePreview(item.image_url);
     } else {
-        // Add mode
         editingItemId = null;
         els.itemModalTitle.textContent = 'Add Menu Item';
         els.itemName.value = '';
@@ -273,7 +504,7 @@ async function uploadImage(file) {
     return data.url;
 }
 
-function closeModal() {
+function closeItemModal() {
     els.itemModal.classList.add('hidden');
     editingItemId = null;
 }
@@ -291,12 +522,11 @@ async function saveItem() {
     els.saveItemBtn.textContent = 'Saving...';
 
     try {
-        // Upload new image if a file was selected
         let image_url = els.itemImage.value || null;
         const fileInput = els.itemImageFile;
         if (fileInput.files && fileInput.files[0]) {
             const uploaded = await uploadImage(fileInput.files[0]);
-            if (uploaded === null) return; // upload failed or unauthorized
+            if (uploaded === null) return;
             image_url = uploaded;
         }
 
@@ -326,7 +556,7 @@ async function saveItem() {
             return;
         }
 
-        closeModal();
+        closeItemModal();
         await loadMenu();
     } catch {
         alert('Connection error. Try again.');
@@ -357,7 +587,7 @@ async function deleteItem() {
             return;
         }
 
-        closeModal();
+        closeItemModal();
         await loadMenu();
     } catch {
         alert('Connection error. Try again.');
@@ -398,7 +628,6 @@ async function toggleMenuItem(itemId, isAvailable) {
     } catch { /* silent */ }
 }
 
-// Helper: find item data from rendered DOM is unreliable, so fetch fresh
 async function fetchItemForEdit(itemId) {
     try {
         const res = await fetch('/api/admin/menu', { headers: authHeaders() });
@@ -419,12 +648,56 @@ els.passwordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') login();
 });
 
-// Accepting orders toggle
+// Logout
+els.logoutBtn.addEventListener('click', logout);
+
+// Tab navigation
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// Order filters
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        currentOrderFilter = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.filter === currentOrderFilter)
+        );
+        renderOrders();
+    });
+});
+
+// Orders list (delegation)
+els.ordersList.addEventListener('click', (e) => {
+    // Advance button
+    const advBtn = e.target.closest('[data-action="advance-order"]');
+    if (advBtn) {
+        e.stopPropagation();
+        advanceOrder(parseInt(advBtn.dataset.id));
+        return;
+    }
+    // View order card
+    const card = e.target.closest('[data-action="view-order"]');
+    if (card) {
+        openOrderModal(card.dataset.id);
+    }
+});
+
+// Order modal
+els.closeOrderModal.addEventListener('click', closeOrderModal);
+els.orderModalOverlay.addEventListener('click', closeOrderModal);
+els.orderAdvanceBtn.addEventListener('click', () => {
+    if (viewingOrderId) {
+        els.orderAdvanceBtn.disabled = true;
+        advanceOrder(viewingOrderId);
+    }
+});
+
+// Settings
 els.acceptingToggle.addEventListener('change', () => {
     updateSetting('accepting_orders', els.acceptingToggle.checked);
 });
 
-// Prep time buttons
 els.prepDecrease.addEventListener('click', () => {
     if (!settings) return;
     const newVal = Math.max(5, settings.prep_time_minutes - 5);
@@ -441,8 +714,7 @@ els.prepIncrease.addEventListener('click', () => {
 els.menuList.addEventListener('change', (e) => {
     const input = e.target;
     if (input.dataset.action === 'toggle-item') {
-        const itemId = input.dataset.id;
-        toggleMenuItem(itemId, input.checked);
+        toggleMenuItem(input.dataset.id, input.checked);
     }
 });
 
@@ -450,21 +722,20 @@ els.menuList.addEventListener('change', (e) => {
 els.menuList.addEventListener('click', async (e) => {
     const info = e.target.closest('[data-action="edit-item"]');
     if (!info) return;
-    const itemId = info.dataset.id;
-    const item = await fetchItemForEdit(itemId);
+    const item = await fetchItemForEdit(info.dataset.id);
     if (item) openItemModal(item);
 });
 
 // Add item button
 els.addItemBtn.addEventListener('click', () => openItemModal(null));
 
-// Modal controls
-els.closeItemModal.addEventListener('click', closeModal);
-els.itemModalOverlay.addEventListener('click', closeModal);
+// Item modal controls
+els.closeItemModal.addEventListener('click', closeItemModal);
+els.itemModalOverlay.addEventListener('click', closeItemModal);
 els.saveItemBtn.addEventListener('click', saveItem);
 els.deleteItemBtn.addEventListener('click', deleteItem);
 
-// Image file picker — show local preview immediately
+// Image file picker
 els.itemImageFile.addEventListener('change', () => {
     const file = els.itemImageFile.files[0];
     if (file) {

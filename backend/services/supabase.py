@@ -37,7 +37,9 @@ def get_menu_items():
 
 
 def create_order(unit_number: str, items: list, total: float,
-                 phone_number: str = None, delivery_notes: str = None):
+                 phone_number: str = None, delivery_notes: str = None,
+                 cutlery: bool = False, order_type: str = "delivery",
+                 payment_method: str = "cash", gcash_ref: str = None):
     order_number = random.randint(1000, 9999)
     tracking_token = str(uuid.uuid4())
     row = {
@@ -45,6 +47,10 @@ def create_order(unit_number: str, items: list, total: float,
         "unit_number": unit_number.strip().upper(),
         "phone_number": phone_number or None,
         "delivery_notes": delivery_notes or None,
+        "cutlery": cutlery,
+        "order_type": order_type,
+        "payment_method": payment_method,
+        "gcash_ref": gcash_ref or None,
         "items": items,
         "total": total,
         "status": "new",
@@ -67,7 +73,7 @@ def get_order(order_id: int):
 
 
 # Tenant-safe fields (no internal IDs or tokens)
-_TENANT_ORDER_FIELDS = "order_number,unit_number,items,total,status,created_at,updated_at,tracking_token"
+_TENANT_ORDER_FIELDS = "order_number,unit_number,items,total,status,order_type,payment_method,created_at,updated_at,tracking_token"
 
 
 def get_order_by_token(token: str):
@@ -90,7 +96,7 @@ def get_active_orders():
     res = (
         supabase
         .table("orders")
-        .select("id,order_number,unit_number,phone_number,delivery_notes,items,total,status,created_at,updated_at")
+        .select("id,order_number,unit_number,phone_number,delivery_notes,cutlery,order_type,payment_method,gcash_ref,items,total,status,created_at,updated_at")
         .neq("status", "delivered")
         .order("created_at", desc=False)
         .execute()
@@ -118,6 +124,26 @@ def advance_order_status(order_id: int):
         .execute()
     )
     return res.data[0]
+
+
+def update_order(order_id: int, data: dict):
+    """Update editable fields on an order (admin use)."""
+    allowed = {"unit_number", "phone_number", "delivery_notes", "cutlery",
+               "order_type", "payment_method", "gcash_ref", "status"}
+    clean = {k: v for k, v in data.items() if k in allowed}
+    if not clean:
+        return None
+    # Validate status if provided
+    if "status" in clean and clean["status"] not in STATUS_FLOW:
+        return None
+    res = (
+        supabase
+        .table("orders")
+        .update(clean)
+        .eq("id", order_id)
+        .execute()
+    )
+    return res.data[0] if res.data else None
 
 
 # ========================================

@@ -9,7 +9,7 @@ from frontend.pages.staff import staff_page
 from frontend.pages.admin import admin_page
 from backend.services.supabase import (
     get_menu_items, create_order, get_order, get_order_by_token,
-    get_active_orders, advance_order_status,
+    get_active_orders, advance_order_status, update_order,
     get_all_menu_items, toggle_item_availability,
     create_menu_item, update_menu_item, delete_menu_item,
     get_settings, update_settings, get_todays_orders,
@@ -75,6 +75,10 @@ async def create_order_api(request: Request):
     total = body.get("total", 0)
     phone_number = body.get("phone_number")
     delivery_notes = body.get("delivery_notes")
+    cutlery = body.get("cutlery", False)
+    order_type = body.get("order_type", "delivery")
+    payment_method = body.get("payment_method", "cash")
+    gcash_ref = body.get("gcash_ref")
 
     order = create_order(
         unit_number=unit_number,
@@ -82,6 +86,10 @@ async def create_order_api(request: Request):
         total=total,
         phone_number=phone_number,
         delivery_notes=delivery_notes,
+        cutlery=cutlery,
+        order_type=order_type,
+        payment_method=payment_method,
+        gcash_ref=gcash_ref,
     )
     return JSONResponse(order, status_code=201)
 
@@ -236,6 +244,27 @@ def admin_orders_today_api(request: Request):
     if not check_admin(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     return JSONResponse(get_todays_orders())
+
+
+@rt("/api/admin/orders/{order_id:int}", methods=["PUT"])
+async def admin_update_order_api(order_id: int, request: Request):
+    if not check_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    body = await request.json()
+    order = update_order(order_id, body)
+    if not order:
+        return JSONResponse({"error": "Order not found or invalid data"}, status_code=404)
+    return JSONResponse(order)
+
+
+@rt("/api/admin/orders/{order_id:int}/advance", methods=["POST"])
+def admin_advance_order_api(order_id: int, request: Request):
+    if not check_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    order = advance_order_status(order_id)
+    if not order:
+        return JSONResponse({"error": "Order not found"}, status_code=404)
+    return JSONResponse(order)
 
 
 # --- Pages ---

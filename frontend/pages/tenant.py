@@ -95,11 +95,44 @@ def tenant_page():
                 Button('Clear All', id='clear-cart-btn', cls='btn-text'),
                 cls='screen-header'
             ),
-            Main(
+            Div(
                 Div(
-                    id='cart-items',
-                    cls='cart-items'
+                    Div(
+                        Div(
+                            Div('1', cls='wizard-dot active'),
+                            Span('Review'),
+                            cls='wizard-indicator active',
+                            data_step='1'
+                        ),
+                        Div(cls='wizard-line'),
+                        Div(
+                            Div('2', cls='wizard-dot'),
+                            Span('Details'),
+                            cls='wizard-indicator',
+                            data_step='2'
+                        ),
+                        Div(cls='wizard-line'),
+                        Div(
+                            Div('3', cls='wizard-dot'),
+                            Span('Preferences'),
+                            cls='wizard-indicator',
+                            data_step='3'
+                        ),
+                        Div(cls='wizard-line'),
+                        Div(
+                            Div('4', cls='wizard-dot'),
+                            Span('Payment'),
+                            cls='wizard-indicator',
+                            data_step='4'
+                        ),
+                        cls='wizard-indicators'
+                    ),
+                    cls='wizard-header'
                 ),
+                id='wizard-header-wrap',
+                cls='hidden'
+            ),
+            Main(
                 Div(
                     Div('🛒', cls='empty-icon'),
                     H3('Your cart is empty'),
@@ -109,42 +142,178 @@ def tenant_page():
                 ),
                 Div(
                     Div(
-                        Span('Subtotal'),
-                        Span('₱0.00', id='subtotal'),
-                        cls='summary-row'
+                        Div(
+                            id='cart-items',
+                            cls='cart-items'
+                        ),
+                        Div(
+                            Div(
+                                Span('Subtotal'),
+                                Span('₱0.00', id='subtotal'),
+                                cls='summary-row'
+                            ),
+                            Div(
+                                Span('Delivery Fee'),
+                                Span('FREE', cls='free'),
+                                cls='summary-row'
+                            ),
+                            Div(
+                                Span('Total'),
+                                Span('₱0.00', id='cart-total-large'),
+                                cls='summary-row total'
+                            ),
+                            cls='cart-summary-box'
+                        ),
+                        data_step='1',
+                        cls='wizard-step active'
                     ),
                     Div(
-                        Span('Delivery Fee'),
-                        Span('FREE', cls='free'),
-                        cls='summary-row'
+                        Div(
+                            H3('Order Type'),
+                            Div(
+                                Button(
+                                    Span('🚚'),
+                                    Span('Delivery'),
+                                    id='btn-delivery',
+                                    cls='order-type-option active',
+                                    data_value='delivery'
+                                ),
+                                Button(
+                                    Span('🏪'),
+                                    Span('Pick Up'),
+                                    id='btn-pickup',
+                                    cls='order-type-option',
+                                    data_value='pickup'
+                                ),
+                                cls='order-type-toggle'
+                            ),
+                            cls='order-type-section'
+                        ),
+                        Div(
+                            H3('Delivery Details', id='details-heading'),
+                            Div(
+                                Label('Unit Number *', fr='unit-number'),
+                                Input(type='text', id='unit-number', placeholder='e.g., 12A', maxlength='10'),
+                                cls='input-group'
+                            ),
+                            Div(
+                                Label('Phone Number (optional)', fr='phone-number'),
+                                Input(type='tel', id='phone-number', placeholder='For delivery contact'),
+                                cls='input-group'
+                            ),
+                            Div(
+                                Label('Delivery Notes (optional)', fr='delivery-notes', id='notes-label'),
+                                Textarea(id='delivery-notes', rows='2', placeholder='Any special instructions...'),
+                                cls='input-group',
+                                id='notes-group'
+                            ),
+                            cls='delivery-section'
+                        ),
+                        data_step='2',
+                        cls='wizard-step'
                     ),
                     Div(
-                        Span('Total'),
-                        Span('₱0.00', id='cart-total-large'),
-                        cls='summary-row total'
+                        Div(
+                            Div(
+                                Span('⚠️', cls='warning-icon'),
+                                H3('Food Allergy Warning'),
+                                cls='allergy-header'
+                            ),
+                            P(
+                                'Food prepared here may contain or have come in contact with milk, wheat, soybeans, peanuts, tree nuts or eggs. If you have food allergy, kindly ask our staff about the ingredients in your meals/drinks before placing your order.',
+                                cls='allergy-text'
+                            ),
+                            Div(
+                                Input(type='checkbox', id='allergen-ack'),
+                                Label(
+                                    'I have read, understood and acknowledge the presence of allergens in meals/drinks served from this store.',
+                                    fr='allergen-ack'
+                                ),
+                                cls='allergy-checkbox'
+                            ),
+                            cls='allergy-warning'
+                        ),
+                        Div(
+                            H3('Order Requests'),
+                            Div(
+                                Div(
+                                    Span('🍴', cls='cutlery-icon'),
+                                    Div(
+                                        P('Cutlery', cls='cutlery-label'),
+                                        P('Request for cutlery only if you need it. Thank you for being environmentally friendly.', cls='cutlery-desc'),
+                                        cls='cutlery-text'
+                                    ),
+                                    cls='cutlery-info'
+                                ),
+                                Div(
+                                    Button('No Cutlery', id='btn-no-cutlery', cls='cutlery-option active', data_value='none'),
+                                    Button('With Cutlery', id='btn-with-cutlery', cls='cutlery-option', data_value='with'),
+                                    cls='cutlery-toggle'
+                                ),
+                                cls='cutlery-request'
+                            ),
+                            cls='order-requests'
+                        ),
+                        data_step='3',
+                        cls='wizard-step'
                     ),
-                    cls='cart-summary-box'
+                    Div(
+                        Div(
+                            H3('Payment Method'),
+                            Div(
+                                Button(
+                                    Span('💵'),
+                                    Span('Cash'),
+                                    id='btn-cash',
+                                    cls='payment-option active',
+                                    data_value='cash'
+                                ),
+                                Button(
+                                    Span('📱'),
+                                    Span('GCash'),
+                                    id='btn-gcash',
+                                    cls='payment-option',
+                                    data_value='gcash'
+                                ),
+                                cls='payment-toggle'
+                            ),
+                            Div(
+                                P('Pay with cash upon delivery/pick up.', id='cash-note'),
+                                cls='payment-note',
+                                id='cash-info'
+                            ),
+                            Div(
+                                P('Send your payment via GCash to:', cls='gcash-instruction'),
+                                Div(
+                                    P('GCash Number', cls='gcash-label'),
+                                    P('0917 XXX XXXX', id='gcash-number', cls='gcash-value'),
+                                    P('Zitan Restaurant', cls='gcash-name'),
+                                    cls='gcash-details'
+                                ),
+                                P('Please send the exact amount and keep your receipt.', cls='gcash-reminder'),
+                                Div(
+                                    Label('GCash Reference Number *', fr='gcash-ref'),
+                                    Input(type='text', id='gcash-ref', placeholder='e.g., 1234 567 890', maxlength='20'),
+                                    cls='gcash-ref-group'
+                                ),
+                                cls='payment-note hidden',
+                                id='gcash-info'
+                            ),
+                            cls='payment-section'
+                        ),
+                        Button('Place Order', id='place-order-btn', disabled='', cls='btn-primary btn-large'),
+                        data_step='4',
+                        cls='wizard-step'
+                    ),
+                    id='wizard-steps',
+                    cls='wizard-steps'
                 ),
                 Div(
-                    H3('Delivery Details'),
-                    Div(
-                        Label('Unit Number *', fr='unit-number'),
-                        Input(type='text', id='unit-number', placeholder='e.g., 12A', maxlength='10'),
-                        cls='input-group'
-                    ),
-                    Div(
-                        Label('Phone Number (optional)', fr='phone-number'),
-                        Input(type='tel', id='phone-number', placeholder='For delivery contact'),
-                        cls='input-group'
-                    ),
-                    Div(
-                        Label('Delivery Notes (optional)', fr='delivery-notes'),
-                        Textarea(id='delivery-notes', rows='2', placeholder='Any special instructions...'),
-                        cls='input-group'
-                    ),
-                    cls='delivery-section'
+                    Button('Back', id='wizard-back-btn', cls='btn-secondary'),
+                    Button('Next', id='wizard-next-btn', cls='btn-primary'),
+                    id='wizard-nav',
+                    cls='wizard-nav hidden'
                 ),
-                Button('Place Order', id='place-order-btn', disabled='', cls='btn-primary btn-large'),
                 cls='cart-container'
             ),
             id='cart-screen',
@@ -203,8 +372,18 @@ def tenant_page():
                         cls='info-row'
                     ),
                     Div(
-                        Span('Delivering to'),
+                        Span('Order Type'),
+                        Strong('Delivery', id='status-order-type'),
+                        cls='info-row'
+                    ),
+                    Div(
+                        Span('Delivering to', id='status-unit-label'),
                         Strong('--', id='delivery-unit'),
+                        cls='info-row'
+                    ),
+                    Div(
+                        Span('Payment'),
+                        Strong('Cash', id='status-payment'),
                         cls='info-row'
                     ),
                     Div(

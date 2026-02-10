@@ -198,6 +198,54 @@ body {
     border-radius: 4px;
 }
 
+.order-tags {
+    display: flex;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.order-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.tag-delivery {
+    background: #E3F2FD;
+    color: #1565C0;
+}
+
+.tag-pickup {
+    background: #FFF3E0;
+    color: #E65100;
+}
+
+.tag-cash {
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.tag-gcash {
+    background: #E8EAF6;
+    color: #283593;
+}
+
+.order-gcash-ref {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #283593;
+    background: #E8EAF6;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.3px;
+}
+
 .order-time {
     font-size: 0.75rem;
     color: var(--text-secondary);
@@ -237,6 +285,22 @@ body {
     border-radius: 4px;
     margin-bottom: 0.75rem;
     border-left: 3px solid var(--preparing);
+}
+
+.order-cutlery {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--preparing);
+    background: #FFF3E0;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+}
+
+.order-cutlery.no-cutlery {
+    color: var(--text-secondary);
+    background: var(--surface);
+    font-weight: 400;
 }
 
 .order-total {

@@ -62,15 +62,31 @@ function renderOrderCard(order) {
         ? `<div class="order-notes">${order.delivery_notes}</div>`
         : '';
 
+    const cutleryHtml = order.cutlery
+        ? `<div class="order-cutlery">🍴 With Cutlery</div>`
+        : `<div class="order-cutlery no-cutlery">No Cutlery</div>`;
+
+    const orderTypeLabel = order.order_type === 'pickup' ? '🏪 Pick Up' : '🚚 Delivery';
+    const paymentLabel = order.payment_method === 'gcash' ? '📱 GCash' : '💵 Cash';
+    const gcashRefHtml = order.payment_method === 'gcash' && order.gcash_ref
+        ? `<div class="order-gcash-ref">Ref: ${order.gcash_ref}</div>`
+        : '';
+
     return `
         <div class="order-card" data-id="${order.id}">
             <div class="order-top">
                 <span class="order-number">#${order.order_number}</span>
                 <span class="order-unit">Unit ${order.unit_number}</span>
             </div>
+            <div class="order-tags">
+                <span class="order-tag ${order.order_type === 'pickup' ? 'tag-pickup' : 'tag-delivery'}">${orderTypeLabel}</span>
+                <span class="order-tag ${order.payment_method === 'gcash' ? 'tag-gcash' : 'tag-cash'}">${paymentLabel}</span>
+            </div>
+            ${gcashRefHtml}
             <div class="order-time">${timeAgo(order.created_at)}</div>
             <ul class="order-items">${itemsHtml}</ul>
             ${notesHtml}
+            ${cutleryHtml}
             <div class="order-total">${formatPrice(order.total)}</div>
             ${next ? `<button class="btn-advance ${next.cls}" onclick="advanceOrder(${order.id})" data-order-id="${order.id}">${next.label}</button>` : ''}
         </div>

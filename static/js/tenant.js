@@ -45,6 +45,11 @@ let currentCategory = 'all';
 let searchQuery = '';
 let editingItemId = null;
 let currentOrder = null;
+let cutleryPreference = 'none'; // 'none' or 'with'
+let orderType = 'delivery'; // 'delivery' or 'pickup'
+let paymentMethod = 'cash'; // 'cash' or 'gcash'
+let currentWizardStep = 1;
+const WIZARD_TOTAL_STEPS = 4;
 
 // DOM Elements
 const screens = {
@@ -127,7 +132,9 @@ async function init() {
                         unitNumber: order.unit_number,
                         items: order.items,
                         total: order.total,
-                        status: order.status
+                        status: order.status,
+                        orderType: order.order_type || 'delivery',
+                        paymentMethod: order.payment_method || 'cash'
                     };
                     showScreen('status');
                     renderOrderStatus();
@@ -306,20 +313,22 @@ function updateCartSummary() {
 
 function renderCart() {
     const cartItemIds = Object.keys(cart).filter(id => cart[id].quantity > 0);
-    
+
     if (cartItemIds.length === 0) {
         elements.cartItems.classList.add('hidden');
         elements.cartEmptyState.classList.remove('hidden');
         elements.placeOrderBtn.disabled = true;
+        showWizardUI(false);
     } else {
         elements.cartItems.classList.remove('hidden');
         elements.cartEmptyState.classList.add('hidden');
-        
+        showWizardUI(true);
+
         elements.cartItems.innerHTML = cartItemIds.map(id => {
             const item = menuItems.find(m => String(m.id) === String(id));
             const cartItem = cart[id];
             const itemTotal = item.price * cartItem.quantity;
-            
+
             return `
                 <div class="cart-item" data-id="${item.id}">
                     <div class="cart-item-image"><img src="${item.image_url || '/static/images/placeholder.png'}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius)"></div>
@@ -336,8 +345,141 @@ function renderCart() {
                 </div>
             `;
         }).join('');
-        
-        elements.placeOrderBtn.disabled = !elements.unitNumber.value.trim();
+
+        const gcashValid = paymentMethod !== 'gcash' || document.getElementById('gcash-ref').value.trim();
+        elements.placeOrderBtn.disabled = !elements.unitNumber.value.trim() || !document.getElementById('allergen-ack').checked || !gcashValid;
+    }
+}
+
+function updatePlaceOrderState() {
+    const hasItems = Object.keys(cart).some(id => cart[id].quantity > 0);
+    const unitFilled = elements.unitNumber.value.trim();
+    const allergenChecked = document.getElementById('allergen-ack').checked;
+    const gcashValid = paymentMethod !== 'gcash' || document.getElementById('gcash-ref').value.trim();
+    elements.placeOrderBtn.disabled = !hasItems || !unitFilled || !allergenChecked || !gcashValid;
+}
+
+// ========================================
+// WIZARD FUNCTIONS
+// ========================================
+const wizardElements = {
+    headerWrap: document.getElementById('wizard-header-wrap'),
+    stepsContainer: document.getElementById('wizard-steps'),
+    nav: document.getElementById('wizard-nav'),
+    backBtn: document.getElementById('wizard-back-btn'),
+    nextBtn: document.getElementById('wizard-next-btn'),
+    indicators: document.querySelectorAll('.wizard-indicator'),
+    dots: document.querySelectorAll('.wizard-dot'),
+    lines: document.querySelectorAll('.wizard-line')
+};
+
+function goToWizardStep(step) {
+    currentWizardStep = step;
+
+    // Show/hide steps
+    document.querySelectorAll('.wizard-step').forEach(el => {
+        el.classList.toggle('active', parseInt(el.dataset.step) === step);
+    });
+
+    // Update indicators
+    wizardElements.indicators.forEach(ind => {
+        const s = parseInt(ind.dataset.step);
+        ind.classList.remove('active', 'completed');
+        ind.querySelector('.wizard-dot').classList.remove('active', 'completed');
+        if (s === step) {
+            ind.classList.add('active');
+            ind.querySelector('.wizard-dot').classList.add('active');
+        } else if (s < step) {
+            ind.classList.add('completed');
+            ind.querySelector('.wizard-dot').classList.add('completed');
+        }
+    });
+
+    // Update lines
+    wizardElements.lines.forEach((line, i) => {
+        // line i sits between step i+1 and step i+2
+        line.classList.toggle('completed', (i + 1) < step);
+    });
+
+    // Back button visibility
+    if (step === 1) {
+        wizardElements.backBtn.classList.add('hidden');
+    } else {
+        wizardElements.backBtn.classList.remove('hidden');
+    }
+
+    // Next button: hide on last step (Place Order button is there)
+    if (step === WIZARD_TOTAL_STEPS) {
+        wizardElements.nextBtn.classList.add('hidden');
+    } else {
+        wizardElements.nextBtn.classList.remove('hidden');
+    }
+
+    // Show nav (Back visible from step 2, Next visible until step 3)
+    if (step === WIZARD_TOTAL_STEPS && step === 1) {
+        wizardElements.nav.classList.add('hidden');
+    } else {
+        wizardElements.nav.classList.remove('hidden');
+    }
+
+    window.scrollTo(0, 0);
+}
+
+function validateWizardStep(step) {
+    switch (step) {
+        case 1: {
+            const hasItems = Object.keys(cart).some(id => cart[id].quantity > 0);
+            if (!hasItems) {
+                alert('Your cart is empty. Add some items first.');
+                return false;
+            }
+            return true;
+        }
+        case 2: {
+            const unit = elements.unitNumber.value.trim();
+            if (!unit) {
+                alert('Please enter your unit number.');
+                elements.unitNumber.focus();
+                return false;
+            }
+            return true;
+        }
+        case 3: {
+            const checked = document.getElementById('allergen-ack').checked;
+            if (!checked) {
+                alert('Please acknowledge the food allergy warning before continuing.');
+                return false;
+            }
+            return true;
+        }
+        default:
+            return true;
+    }
+}
+
+function wizardNext() {
+    if (!validateWizardStep(currentWizardStep)) return;
+    if (currentWizardStep < WIZARD_TOTAL_STEPS) {
+        goToWizardStep(currentWizardStep + 1);
+    }
+}
+
+function wizardBack() {
+    if (currentWizardStep > 1) {
+        goToWizardStep(currentWizardStep - 1);
+    }
+}
+
+function showWizardUI(show) {
+    if (show) {
+        wizardElements.headerWrap.classList.remove('hidden');
+        wizardElements.stepsContainer.classList.remove('hidden');
+        wizardElements.nav.classList.remove('hidden');
+        goToWizardStep(currentWizardStep);
+    } else {
+        wizardElements.headerWrap.classList.add('hidden');
+        wizardElements.stepsContainer.classList.add('hidden');
+        wizardElements.nav.classList.add('hidden');
     }
 }
 
@@ -430,6 +572,9 @@ function closeItemDetail() {
 function showScreen(screenName) {
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[screenName].classList.add('active');
+    if (screenName === 'cart') {
+        goToWizardStep(1);
+    }
     window.scrollTo(0, 0);
 }
 
@@ -450,6 +595,18 @@ async function placeOrder() {
 
     if (!unitNumber) {
         alert('Please enter your unit number');
+        return;
+    }
+
+    if (!document.getElementById('allergen-ack').checked) {
+        alert('Please acknowledge the food allergy warning before placing your order.');
+        return;
+    }
+
+    const gcashRef = document.getElementById('gcash-ref').value.trim();
+    if (paymentMethod === 'gcash' && !gcashRef) {
+        alert('Please enter your GCash reference number.');
+        document.getElementById('gcash-ref').focus();
         return;
     }
 
@@ -480,6 +637,10 @@ async function placeOrder() {
                 unit_number: unitNumber,
                 phone_number: phoneNumber || null,
                 delivery_notes: deliveryNotes || null,
+                cutlery: cutleryPreference === 'with',
+                order_type: orderType,
+                payment_method: paymentMethod,
+                gcash_ref: paymentMethod === 'gcash' ? gcashRef : null,
                 items: orderItems,
                 total
             })
@@ -501,7 +662,9 @@ async function placeOrder() {
             unitNumber: order.unit_number,
             items: order.items,
             total: order.total,
-            status: order.status
+            status: order.status,
+            orderType: order.order_type || 'delivery',
+            paymentMethod: order.payment_method || 'cash'
         };
 
         // Reset cart and form
@@ -509,6 +672,22 @@ async function placeOrder() {
         elements.unitNumber.value = '';
         elements.phoneNumber.value = '';
         elements.deliveryNotes.value = '';
+        document.getElementById('allergen-ack').checked = false;
+        cutleryPreference = 'none';
+        document.getElementById('btn-no-cutlery').classList.add('active');
+        document.getElementById('btn-with-cutlery').classList.remove('active');
+        orderType = 'delivery';
+        document.getElementById('btn-delivery').classList.add('active');
+        document.getElementById('btn-pickup').classList.remove('active');
+        document.getElementById('details-heading').textContent = 'Delivery Details';
+        document.getElementById('notes-group').classList.remove('hidden');
+        paymentMethod = 'cash';
+        document.getElementById('btn-cash').classList.add('active');
+        document.getElementById('btn-gcash').classList.remove('active');
+        document.getElementById('cash-info').classList.remove('hidden');
+        document.getElementById('gcash-info').classList.add('hidden');
+        document.getElementById('gcash-ref').value = '';
+        currentWizardStep = 1;
         updateCartSummary();
         renderMenu();
 
@@ -536,6 +715,15 @@ let statusPollTimer = null;
 function renderOrderStatus() {
     elements.orderNumber.textContent = currentOrder.orderNumber;
     elements.deliveryUnit.textContent = currentOrder.unitNumber;
+
+    // Order type
+    const isPickup = currentOrder.orderType === 'pickup';
+    document.getElementById('status-order-type').textContent = isPickup ? 'Pick Up' : 'Delivery';
+    document.getElementById('status-unit-label').textContent = isPickup ? 'Unit' : 'Delivering to';
+
+    // Payment method
+    const payLabel = currentOrder.paymentMethod === 'gcash' ? 'GCash' : 'Cash';
+    document.getElementById('status-payment').textContent = payLabel;
 
     // Dynamic prep time from restaurant settings
     if (restaurantSettings && restaurantSettings.prep_time_minutes) {
@@ -693,13 +881,66 @@ function setupEventListeners() {
     
     elements.clearCartBtn.addEventListener('click', clearCart);
     
+    // Wizard navigation
+    wizardElements.nextBtn.addEventListener('click', wizardNext);
+    wizardElements.backBtn.addEventListener('click', wizardBack);
+
     // Place order
     elements.placeOrderBtn.addEventListener('click', placeOrder);
     
     // Unit number validation
-    elements.unitNumber.addEventListener('input', () => {
-        const hasItems = Object.keys(cart).length > 0;
-        elements.placeOrderBtn.disabled = !elements.unitNumber.value.trim() || !hasItems;
+    elements.unitNumber.addEventListener('input', updatePlaceOrderState);
+
+    // Allergen acknowledgment
+    document.getElementById('allergen-ack').addEventListener('change', updatePlaceOrderState);
+
+    // Order type toggle
+    document.getElementById('btn-delivery').addEventListener('click', () => {
+        orderType = 'delivery';
+        document.getElementById('btn-delivery').classList.add('active');
+        document.getElementById('btn-pickup').classList.remove('active');
+        document.getElementById('details-heading').textContent = 'Delivery Details';
+        document.getElementById('notes-group').classList.remove('hidden');
+    });
+    document.getElementById('btn-pickup').addEventListener('click', () => {
+        orderType = 'pickup';
+        document.getElementById('btn-pickup').classList.add('active');
+        document.getElementById('btn-delivery').classList.remove('active');
+        document.getElementById('details-heading').textContent = 'Pick Up Details';
+        document.getElementById('notes-group').classList.add('hidden');
+    });
+
+    // Payment method toggle
+    document.getElementById('btn-cash').addEventListener('click', () => {
+        paymentMethod = 'cash';
+        document.getElementById('btn-cash').classList.add('active');
+        document.getElementById('btn-gcash').classList.remove('active');
+        document.getElementById('cash-info').classList.remove('hidden');
+        document.getElementById('gcash-info').classList.add('hidden');
+        updatePlaceOrderState();
+    });
+    document.getElementById('btn-gcash').addEventListener('click', () => {
+        paymentMethod = 'gcash';
+        document.getElementById('btn-gcash').classList.add('active');
+        document.getElementById('btn-cash').classList.remove('active');
+        document.getElementById('gcash-info').classList.remove('hidden');
+        document.getElementById('cash-info').classList.add('hidden');
+        updatePlaceOrderState();
+    });
+
+    // GCash reference number validation
+    document.getElementById('gcash-ref').addEventListener('input', updatePlaceOrderState);
+
+    // Cutlery toggle
+    document.getElementById('btn-no-cutlery').addEventListener('click', () => {
+        cutleryPreference = 'none';
+        document.getElementById('btn-no-cutlery').classList.add('active');
+        document.getElementById('btn-with-cutlery').classList.remove('active');
+    });
+    document.getElementById('btn-with-cutlery').addEventListener('click', () => {
+        cutleryPreference = 'with';
+        document.getElementById('btn-with-cutlery').classList.add('active');
+        document.getElementById('btn-no-cutlery').classList.remove('active');
     });
     
     // Modal actions
