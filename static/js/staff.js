@@ -40,7 +40,45 @@ const counts = {
     ready: document.getElementById('count-ready')
 };
 
+const tabCounts = {
+    new: document.getElementById('tab-count-new'),
+    preparing: document.getElementById('tab-count-preparing'),
+    ready: document.getElementById('tab-count-ready')
+};
+
 const activeCount = document.getElementById('active-count');
+const mobileTabs = document.getElementById('mobile-tabs');
+const colTabs = document.querySelectorAll('.col-tab');
+const orderColumns = document.querySelectorAll('.order-column');
+
+let activeTab = 'new';
+
+// ========================================
+// MOBILE TABS
+// ========================================
+
+function switchTab(col) {
+    activeTab = col;
+
+    colTabs.forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.col === col);
+    });
+
+    orderColumns.forEach(section => {
+        if (section.dataset.col === col) {
+            section.classList.remove('mobile-hidden');
+        } else {
+            section.classList.add('mobile-hidden');
+        }
+    });
+}
+
+// Set initial mobile state
+switchTab('new');
+
+colTabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.col));
+});
 
 // ========================================
 // RENDER
@@ -105,6 +143,9 @@ function renderOrders(orders) {
     Object.keys(columns).forEach(status => {
         columns[status].innerHTML = grouped[status].map(renderOrderCard).join('');
         counts[status].textContent = grouped[status].length;
+        if (tabCounts[status]) {
+            tabCounts[status].textContent = grouped[status].length;
+        }
     });
 
     const total = orders.length;
