@@ -147,6 +147,55 @@ def update_order(order_id: int, data: dict):
 
 
 # ========================================
+# CATEGORIES
+# ========================================
+
+def get_categories():
+    """All categories sorted by sort_order."""
+    res = (
+        supabase
+        .table("categories")
+        .select("id,name,display_name,emoji,sort_order")
+        .order("sort_order")
+        .execute()
+    )
+    return res.data
+
+
+def create_category(data: dict):
+    allowed = {"name", "display_name", "emoji", "sort_order"}
+    row = {k: v for k, v in data.items() if k in allowed}
+    res = supabase.table("categories").insert(row).execute()
+    return res.data[0] if res.data else None
+
+
+def update_category(cat_id: str, data: dict):
+    allowed = {"name", "display_name", "emoji", "sort_order"}
+    clean = {k: v for k, v in data.items() if k in allowed}
+    if not clean:
+        return None
+    res = (
+        supabase
+        .table("categories")
+        .update(clean)
+        .eq("id", cat_id)
+        .execute()
+    )
+    return res.data[0] if res.data else None
+
+
+def delete_category(cat_id: str):
+    res = (
+        supabase
+        .table("categories")
+        .delete()
+        .eq("id", cat_id)
+        .execute()
+    )
+    return len(res.data) > 0
+
+
+# ========================================
 # ADMIN: Menu management
 # ========================================
 
@@ -204,6 +253,33 @@ def delete_menu_item(item_id: str):
         .execute()
     )
     return len(res.data) > 0
+
+
+# ========================================
+# ADMIN: Image storage (Supabase bucket)
+# ========================================
+
+MENU_BUCKET = "menu-images"
+
+MIME_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
+def upload_menu_image(filename: str, file_bytes: bytes, ext: str):
+    """Upload image to Supabase Storage and return its public URL."""
+    content_type = MIME_TYPES.get(ext, "application/octet-stream")
+    supabase.storage.from_(MENU_BUCKET).upload(
+        path=filename,
+        file=file_bytes,
+        file_options={"content-type": content_type},
+    )
+    public_url = supabase.storage.from_(MENU_BUCKET).get_public_url(filename)
+    return public_url
 
 
 # ========================================

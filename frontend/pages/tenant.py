@@ -51,10 +51,7 @@ def tenant_page():
             Main(
                 Div(
                     Div(
-                        Button(Span('🍽️'), Span('All'), data_category='all', cls='tab-btn active'),
-                        Button(Span('🍛'), Span('Mains'), data_category='mains', cls='tab-btn'),
-                        Button(Span('🥗'), Span('Sides'), data_category='sides', cls='tab-btn'),
-                        Button(Span('🥤'), Span('Drinks'), data_category='drinks', cls='tab-btn'),
+                        id='category-tabs',
                         cls='category-tabs'
                     ),
                     cls='sticky-nav'

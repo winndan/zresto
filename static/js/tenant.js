@@ -13,6 +13,7 @@ function formatPrice(amount) {
 }
 
 let menuItems = [];
+let menuCategories = [];
 let restaurantSettings = null;
 
 async function fetchMenuItems() {
@@ -22,6 +23,14 @@ async function fetchMenuItems() {
         return [];
     }
     return await res.json();
+}
+
+async function fetchCategories() {
+    try {
+        const res = await fetch('/api/categories');
+        if (!res.ok) return [];
+        return await res.json();
+    } catch { return []; }
 }
 
 async function checkRestaurantStatus() {
@@ -110,6 +119,8 @@ const elements = {
 // ========================================
 async function init() {
     await checkRestaurantStatus();
+    menuCategories = await fetchCategories();
+    renderCategoryTabs();
     menuItems = await fetchMenuItems();
     renderMenu();
     setupEventListeners();
@@ -152,19 +163,39 @@ async function init() {
 
 
 // ========================================
+// CATEGORY TABS
+// ========================================
+function renderCategoryTabs() {
+    const container = document.getElementById('category-tabs');
+    if (!container) return;
+
+    let html = `<button class="tab-btn active" data-category="all"><span>🍽️</span><span>All</span></button>`;
+    menuCategories.forEach(cat => {
+        html += `<button class="tab-btn" data-category="${cat.name}"><span>${cat.emoji || ''}</span><span>${cat.display_name}</span></button>`;
+    });
+    container.innerHTML = html;
+}
+
+// ========================================
 // MENU FUNCTIONS
 // ========================================
 function renderMenu() {
-    let filteredItems = currentCategory === 'all'
-        ? menuItems
-        : menuItems.filter(item => item.category === currentCategory);
+    // When searching, ignore category filter so results come from all categories
+    let filteredItems;
+    if (searchQuery) {
+        filteredItems = menuItems;
+    } else {
+        filteredItems = currentCategory === 'all'
+            ? menuItems
+            : menuItems.filter(item => item.category === currentCategory);
+    }
 
     if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        filteredItems = filteredItems.filter(item =>
-            item.name.toLowerCase().includes(q) ||
-            (item.description && item.description.toLowerCase().includes(q))
-        );
+        const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+        filteredItems = filteredItems.filter(item => {
+            const haystack = (item.name + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
+            return tokens.every(t => haystack.includes(t));
+        });
     }
 
     if (filteredItems.length === 0) {
@@ -207,12 +238,15 @@ function renderMenu() {
 
 function filterMenu(category) {
     currentCategory = category;
-    
+
     // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.category === category);
-    });
-    
+    const tabContainer = document.getElementById('category-tabs');
+    if (tabContainer) {
+        tabContainer.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.category === category);
+        });
+    }
+
     renderMenu();
 }
 
@@ -817,10 +851,14 @@ function setupEventListeners() {
         }, 200);
     });
 
-    // Category tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => filterMenu(btn.dataset.category));
-    });
+    // Category tabs (delegated since tabs are dynamic)
+    const tabContainer = document.getElementById('category-tabs');
+    if (tabContainer) {
+        tabContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.tab-btn');
+            if (btn) filterMenu(btn.dataset.category);
+        });
+    }
     
     // Menu item actions
     elements.menuItems.addEventListener('click', (e) => {

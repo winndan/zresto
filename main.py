@@ -1,6 +1,5 @@
 import os
 import uuid
-from pathlib import Path
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -12,8 +11,10 @@ from backend.services.supabase import (
     get_active_orders, advance_order_status, update_order,
     get_all_menu_items, toggle_item_availability,
     create_menu_item, update_menu_item, delete_menu_item,
+    get_categories, create_category, update_category, delete_category,
     get_settings, update_settings, get_todays_orders,
     verify_admin_password, verify_admin_token,
+    upload_menu_image,
 )
 
 app, rt = fast_app()
@@ -148,7 +149,6 @@ async def admin_settings_api(request: Request):
 
 # --- Admin image upload ---
 
-UPLOAD_DIR = Path("static/images/menu")
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
@@ -171,11 +171,64 @@ async def admin_upload_api(request: Request):
         return JSONResponse({"error": "File too large (max 5 MB)"}, status_code=400)
 
     filename = f"{uuid.uuid4().hex}{ext}"
-    filepath = UPLOAD_DIR / filename
-    filepath.write_bytes(contents)
 
-    url = f"/static/images/menu/{filename}"
+    try:
+        url = upload_menu_image(filename, contents, ext)
+    except Exception as e:
+        return JSONResponse({"error": f"Upload failed: {str(e)}"}, status_code=500)
+
     return JSONResponse({"url": url})
+
+
+# --- Categories (public) ---
+
+@rt("/api/categories")
+def categories_api():
+    return JSONResponse(get_categories())
+
+
+# --- Admin categories ---
+
+@rt("/api/admin/categories", methods=["POST"])
+async def admin_create_category_api(request: Request):
+    if not check_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    body = await request.json()
+    name = (body.get("name") or "").strip().lower().replace(" ", "-")
+    display_name = (body.get("display_name") or "").strip()
+    if not name or not display_name:
+        return JSONResponse({"error": "Name and display name are required"}, status_code=400)
+    body["name"] = name
+    body["display_name"] = display_name
+    cat = create_category(body)
+    if not cat:
+        return JSONResponse({"error": "Failed to create category"}, status_code=500)
+    return JSONResponse(cat, status_code=201)
+
+
+@rt("/api/admin/categories/{cat_id}", methods=["PUT"])
+async def admin_update_category_api(cat_id: str, request: Request):
+    if not check_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    body = await request.json()
+    if "name" in body:
+        body["name"] = (body["name"] or "").strip().lower().replace(" ", "-")
+    if "display_name" in body:
+        body["display_name"] = (body["display_name"] or "").strip()
+    cat = update_category(cat_id, body)
+    if not cat:
+        return JSONResponse({"error": "Category not found"}, status_code=404)
+    return JSONResponse(cat)
+
+
+@rt("/api/admin/categories/{cat_id}", methods=["DELETE"])
+def admin_delete_category_api(cat_id: str, request: Request):
+    if not check_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    deleted = delete_category(cat_id)
+    if not deleted:
+        return JSONResponse({"error": "Category not found"}, status_code=404)
+    return JSONResponse({"ok": True})
 
 
 # --- Admin menu ---

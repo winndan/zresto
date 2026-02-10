@@ -32,9 +32,11 @@ function formatTime(dateStr) {
 let token = sessionStorage.getItem('admin_token') || null;
 let settings = null;
 let todaysOrders = [];
+let categories = [];
 let currentOrderFilter = 'all';
 let refreshTimer = null;
 let editingItemId = null;
+let editingCatId = null;
 let viewingOrderId = null;
 
 // DOM
@@ -61,6 +63,18 @@ const els = {
     ordersEmpty: document.getElementById('orders-empty'),
     statusBreakdown: document.getElementById('status-breakdown'),
     paymentBreakdown: document.getElementById('payment-breakdown'),
+    // Category management
+    addCategoryBtn: document.getElementById('add-category-btn'),
+    categoryList: document.getElementById('category-list'),
+    catModal: document.getElementById('cat-modal'),
+    catModalOverlay: document.getElementById('cat-modal-overlay'),
+    catModalTitle: document.getElementById('cat-modal-title'),
+    closeCatModal: document.getElementById('close-cat-modal'),
+    catDisplayName: document.getElementById('cat-display-name'),
+    catEmoji: document.getElementById('cat-emoji'),
+    catSortOrder: document.getElementById('cat-sort-order'),
+    saveCatBtn: document.getElementById('save-cat-btn'),
+    deleteCatBtn: document.getElementById('delete-cat-btn'),
     // Menu item modal
     itemModal: document.getElementById('item-modal'),
     itemModalOverlay: document.getElementById('item-modal-overlay'),
@@ -177,7 +191,7 @@ function switchTab(tabName) {
     // Refresh data when switching to certain tabs
     if (tabName === 'orders') loadOrders();
     if (tabName === 'analytics') loadOrders();
-    if (tabName === 'menu') loadMenu();
+    if (tabName === 'menu') { loadCategories(); loadMenu(); }
 }
 
 // ========================================
@@ -185,7 +199,7 @@ function switchTab(tabName) {
 // ========================================
 
 async function loadAll() {
-    await Promise.all([loadSettings(), loadMenu(), loadOrders()]);
+    await Promise.all([loadSettings(), loadCategories(), loadMenu(), loadOrders()]);
 }
 
 async function loadSettings() {
@@ -194,6 +208,16 @@ async function loadSettings() {
         if (!res.ok) return;
         settings = await res.json();
         renderSettings();
+    } catch { /* silent */ }
+}
+
+async function loadCategories() {
+    try {
+        const res = await fetch('/api/categories');
+        if (!res.ok) return;
+        categories = await res.json();
+        renderCategories();
+        populateCategoryDropdown();
     } catch { /* silent */ }
 }
 
@@ -261,6 +285,141 @@ function renderMenu(items) {
             </div>
         </div>
     `).join('');
+}
+
+// ========================================
+// RENDER: CATEGORIES
+// ========================================
+
+function renderCategories() {
+    if (categories.length === 0) {
+        els.categoryList.innerHTML = '<p style="color:var(--text-secondary);font-size:0.875rem">No categories yet. Add one to get started.</p>';
+        return;
+    }
+    els.categoryList.innerHTML = categories.map(cat => `
+        <div class="category-chip" data-id="${cat.id}" data-action="edit-cat">
+            <span class="category-chip-emoji">${escapeHtml(cat.emoji || '')}</span>
+            <span class="category-chip-name">${escapeHtml(cat.display_name)}</span>
+            <span class="category-chip-order">#${cat.sort_order}</span>
+        </div>
+    `).join('');
+}
+
+function populateCategoryDropdown() {
+    const select = els.itemCategory;
+    const currentValue = select.value;
+    select.innerHTML = categories.map(cat =>
+        `<option value="${escapeHtml(cat.name)}">${escapeHtml(cat.display_name)}</option>`
+    ).join('');
+    if (currentValue && [...select.options].some(o => o.value === currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+// ========================================
+// CATEGORY MODAL
+// ========================================
+
+function openCatModal(cat) {
+    if (cat) {
+        editingCatId = cat.id;
+        els.catModalTitle.textContent = 'Edit Category';
+        els.catDisplayName.value = cat.display_name || '';
+        els.catEmoji.value = cat.emoji || '';
+        els.catSortOrder.value = cat.sort_order || 0;
+        els.deleteCatBtn.classList.remove('hidden');
+    } else {
+        editingCatId = null;
+        els.catModalTitle.textContent = 'Add Category';
+        els.catDisplayName.value = '';
+        els.catEmoji.value = '';
+        els.catSortOrder.value = categories.length + 1;
+        els.deleteCatBtn.classList.add('hidden');
+    }
+    els.catModal.classList.remove('hidden');
+}
+
+function closeCatModal() {
+    els.catModal.classList.add('hidden');
+    editingCatId = null;
+}
+
+async function saveCategory() {
+    const display_name = els.catDisplayName.value.trim();
+    if (!display_name) { alert('Please enter a display name'); return; }
+
+    const name = display_name.toLowerCase().replace(/\s+/g, '-');
+    const emoji = els.catEmoji.value.trim();
+    const sort_order = parseInt(els.catSortOrder.value) || 0;
+
+    els.saveCatBtn.disabled = true;
+    els.saveCatBtn.textContent = 'Saving...';
+
+    try {
+        const body = { name, display_name, emoji, sort_order };
+        let res;
+
+        if (editingCatId) {
+            res = await fetch(`/api/admin/categories/${editingCatId}`, {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify(body),
+            });
+        } else {
+            res = await fetch('/api/admin/categories', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify(body),
+            });
+        }
+
+        if (res.status === 401) { handleUnauthorized(); return; }
+
+        if (!res.ok) {
+            const err = await res.json();
+            alert(err.error || 'Failed to save category');
+            return;
+        }
+
+        closeCatModal();
+        await loadCategories();
+    } catch {
+        alert('Connection error. Try again.');
+    } finally {
+        els.saveCatBtn.disabled = false;
+        els.saveCatBtn.textContent = 'Save';
+    }
+}
+
+async function deleteCategory() {
+    if (!editingCatId) return;
+    if (!confirm('Delete this category? Items using it will keep their current category.')) return;
+
+    els.deleteCatBtn.disabled = true;
+    els.deleteCatBtn.textContent = 'Deleting...';
+
+    try {
+        const res = await fetch(`/api/admin/categories/${editingCatId}`, {
+            method: 'DELETE',
+            headers: authHeaders(),
+        });
+
+        if (res.status === 401) { handleUnauthorized(); return; }
+
+        if (!res.ok) {
+            const err = await res.json();
+            alert(err.error || 'Failed to delete category');
+            return;
+        }
+
+        closeCatModal();
+        await loadCategories();
+    } catch {
+        alert('Connection error. Try again.');
+    } finally {
+        els.deleteCatBtn.disabled = false;
+        els.deleteCatBtn.textContent = 'Delete';
+    }
 }
 
 // ========================================
@@ -445,6 +604,7 @@ async function advanceOrder(orderId) {
 
 function openItemModal(item) {
     els.itemImageFile.value = '';
+    const defaultCat = categories.length > 0 ? categories[0].name : '';
 
     if (item) {
         editingItemId = item.id;
@@ -452,7 +612,7 @@ function openItemModal(item) {
         els.itemName.value = item.name || '';
         els.itemDescription.value = item.description || '';
         els.itemPrice.value = item.price || '';
-        els.itemCategory.value = item.category || 'mains';
+        els.itemCategory.value = item.category || defaultCat;
         els.itemImage.value = item.image_url || '';
         els.deleteItemBtn.classList.remove('hidden');
         showImagePreview(item.image_url);
@@ -462,7 +622,7 @@ function openItemModal(item) {
         els.itemName.value = '';
         els.itemDescription.value = '';
         els.itemPrice.value = '';
-        els.itemCategory.value = 'mains';
+        els.itemCategory.value = defaultCat;
         els.itemImage.value = '';
         els.deleteItemBtn.classList.add('hidden');
         showImagePreview(null);
@@ -728,6 +888,21 @@ els.menuList.addEventListener('click', async (e) => {
 
 // Add item button
 els.addItemBtn.addEventListener('click', () => openItemModal(null));
+
+// Category management
+els.addCategoryBtn.addEventListener('click', () => openCatModal(null));
+els.closeCatModal.addEventListener('click', closeCatModal);
+els.catModalOverlay.addEventListener('click', closeCatModal);
+els.saveCatBtn.addEventListener('click', saveCategory);
+els.deleteCatBtn.addEventListener('click', deleteCategory);
+
+// Category list (click to edit)
+els.categoryList.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-action="edit-cat"]');
+    if (!chip) return;
+    const cat = categories.find(c => String(c.id) === String(chip.dataset.id));
+    if (cat) openCatModal(cat);
+});
 
 // Item modal controls
 els.closeItemModal.addEventListener('click', closeItemModal);

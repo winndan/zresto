@@ -80,6 +80,17 @@ def admin_page():
                     ),
                     # ===== MENU TAB =====
                     Div(
+                        # Category management
+                        Div(
+                            Div(
+                                H2('Categories'),
+                                Button('+ Add Category', id='add-category-btn', cls='btn-primary btn-sm'),
+                                cls='section-header'
+                            ),
+                            Div(id='category-list', cls='category-list'),
+                            cls='category-section'
+                        ),
+                        # Menu items
                         Div(
                             H2('Menu Items'),
                             Button('+ Add Item', id='add-item-btn', cls='btn-primary btn-sm'),
@@ -193,12 +204,7 @@ def admin_page():
                             ),
                             Div(
                                 Label('Category *'),
-                                Select(
-                                    Option('Mains', value='mains'),
-                                    Option('Sides', value='sides'),
-                                    Option('Drinks', value='drinks'),
-                                    id='item-category'
-                                ),
+                                Select(id='item-category'),
                                 cls='form-group'
                             ),
                             cls='form-row'
@@ -230,6 +236,46 @@ def admin_page():
                     cls='modal-content'
                 ),
                 id='item-modal',
+                cls='modal hidden'
+            ),
+            # Add/Edit category modal
+            Div(
+                Div(cls='modal-overlay', id='cat-modal-overlay'),
+                Div(
+                    Div(
+                        H3('Add Category', id='cat-modal-title'),
+                        Button('\u00d7', id='close-cat-modal', cls='btn-close'),
+                        cls='modal-header'
+                    ),
+                    Div(
+                        Div(
+                            Label('Display Name *'),
+                            Input(type='text', id='cat-display-name', placeholder='e.g., Desserts'),
+                            cls='form-group'
+                        ),
+                        Div(
+                            Div(
+                                Label('Emoji'),
+                                Input(type='text', id='cat-emoji', placeholder='e.g., 🍰', maxlength='4'),
+                                cls='form-group'
+                            ),
+                            Div(
+                                Label('Sort Order'),
+                                Input(type='number', id='cat-sort-order', value='0', min='0'),
+                                cls='form-group'
+                            ),
+                            cls='form-row'
+                        ),
+                        cls='modal-body'
+                    ),
+                    Div(
+                        Button('Delete', id='delete-cat-btn', cls='btn-danger hidden'),
+                        Button('Save', id='save-cat-btn', cls='btn-primary'),
+                        cls='modal-footer'
+                    ),
+                    cls='modal-content'
+                ),
+                id='cat-modal',
                 cls='modal hidden'
             ),
             # Order detail/edit modal
